@@ -1,0 +1,36 @@
+# --- Normalize text files to LF (Unix style) across all OSes ---
+* text=auto eol=lf
+
+# --- Common file types ---
+*.js    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.json  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+*.env   text eol=lf
+*.lock  text eol=lf
+
+# --- Prevent Git from trying to treat these as text ---
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.mp4 binary
+*.mov binary
+*.webm binary
+
+# --- Optional: ensure consistent diff/merge behavior for special files ---
+package-lock.json merge=union
+yarn.lock merge=union
