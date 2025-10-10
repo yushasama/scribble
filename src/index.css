@@ -1,0 +1,194 @@
+/* Global Styles - Flat Design Philosophy */
+* {
+  box-sizing: border-box;
+}
+
+/* Remove shadows globally, but NOT filters (breaks syntax highlighting) */
+body, div, section, article, aside, nav, header, footer, main,
+h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, li, dl, dt, dd,
+table, thead, tbody, tfoot, tr, th, td, form, fieldset, legend, label, input, button, select, textarea {
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #0d1117; /* GitHub Dark */
+  color: #e6edf3;      /* GitHub Dark text */
+}
+
+/* Loading screen */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: var(--theme-bg, #0d1117);
+  color: var(--theme-text, #e6edf3);
+}
+.loading-logo {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--theme-accent, #7aa2f7);
+}
+.loading-spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--theme-accent, #7aa2f7), transparent 60%);
+  -webkit-mask: radial-gradient(circle 20px, transparent 98%, #000 100%);
+  mask: radial-gradient(circle 20px, transparent 98%, #000 100%);
+  animation: spin 900ms linear infinite;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.02) inset;
+}
+.loading-hint { opacity: 0.75; font-size: 13px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#root {
+  height: 100%;
+}
+
+/* CodeMirror Overrides */
+.cm-editor {
+  height: 100%;
+}
+
+.cm-scroller {
+  font-family: 'JetBrains Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+/* KaTeX Styles */
+.katex {
+  font-size: 1.1em;
+}
+
+.katex-display {
+  margin: 1.5em 0;
+  text-align: center;
+  overflow: visible !important; /* avoid scrollbars inside equations */
+}
+
+/* Prism Styles */
+pre[class*="language-"] {
+  margin: 1em 0;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+code[class*="language-"] {
+  font-family: 'JetBrains Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+}
+
+/* Mermaid Styles */
+.mermaid {
+  text-align: center;
+  margin: 1em 0;
+}
+
+/* Default hidden mobile blocker */
+.mobile-blocker { display: none; }
+
+/* Focus Styles */
+*:focus {
+  outline: 2px solid #7aa2f7;
+  outline-offset: 2px;
+}
+
+/* Prevent resize handle from being tab-focusable */
+[data-panel-resize-handle-id] {
+  outline: none !important;
+}
+
+[data-panel-resize-handle-id]:focus {
+  outline: none !important;
+}
+
+/* Selection Styles - Let CodeMirror handle editor selection */
+/* Global selection for preview pane only */
+.preview-wrapper ::selection {
+  background: rgba(0, 122, 204, 0.15);
+  color: inherit;
+}
+
+.preview-wrapper ::-moz-selection {
+  background: rgba(0, 122, 204, 0.15);
+  color: inherit;
+}
+
+/* Mobile blocker: hide app on small screens */
+@media (max-width: 899px) {
+  .app { display: none; }
+  .mobile-blocker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    padding: 24px;
+    z-index: 9999;
+    background: var(--theme-bg, #0d1117);
+  }
+  .mobile-blocker-card {
+    background: linear-gradient(180deg, rgba(13,17,23,0.95) 0%, rgba(13,17,23,0.9) 100%);
+    color: var(--theme-text, #e6edf3);
+    border: 1px solid var(--theme-border, #30363d);
+    border-radius: 12px;
+    padding: 28px 24px;
+    text-align: center;
+    max-width: 520px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02) inset;
+  }
+  .mobile-blocker-card h2 {
+    margin: 10px 0 8px;
+    font-size: 20px;
+    letter-spacing: 0.2px;
+  }
+  .mobile-blocker-card p {
+    margin: 0 0 14px;
+    opacity: 0.85;
+  }
+  .mobile-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 9999px;
+    margin: 0 auto 10px;
+    color: var(--theme-accent, #7aa2f7);
+    background: rgba(122,162,247,0.08);
+    box-shadow: 0 8px 24px rgba(122,162,247,0.25);
+  }
+  .mobile-blocker-actions { margin-top: 6px; }
+  .mobile-blocker-btn {
+    background: var(--theme-accent, #7aa2f7);
+    color: #0b1220;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .08s ease, filter .2s ease;
+  }
+  .mobile-blocker-btn:hover { filter: brightness(1.05); }
+  .mobile-blocker-btn:active { transform: translateY(1px); }
+}
+
+@media (min-width: 900px) {
+  .mobile-blocker { display: none; }
+}

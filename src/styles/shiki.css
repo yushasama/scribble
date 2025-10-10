@@ -1,0 +1,25 @@
+.shiki {
+  overflow-x: auto;
+  border-radius: 8px;
+  font-family: var(--font-mono, 'Fira Code', monospace);
+  padding: 1rem;
+  line-height: 1.5;
+}
+
+/* Keep Shiki's inline/token colors intact; avoid overriding span styles */
+
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.copy-btn:hover {
+  opacity: 1;
+}
+
+
