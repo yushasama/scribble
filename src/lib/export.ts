@@ -23,12 +23,16 @@ export function exportToHTML(
 ): void {
   // Clone content so we can strip interactive controls (copy buttons, etc.)
   const clone = sourceElement.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll('.copy-btn, .copy-button-icon').forEach(el => el.remove());
 
   // Collect all existing stylesheets and inline styles from the document
   const styles = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
     .map((el: Element) => (el as HTMLElement).outerHTML)
     .join('\n');
+
+  // Ensure KaTeX CSS is available in the standalone export (production builds often use
+  // external CSS assets that won't be bundled alongside the exported HTML file). We include
+  // the CDN stylesheet unconditionally to guarantee fonts and layout render correctly.
+  const katexCdnCss = "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/katex@0.16.23/dist/katex.min.css\">";
 
   const computedStyle = window.getComputedStyle(sourceElement);
   const bgColor = computedStyle.backgroundColor || '#fff';
@@ -41,6 +45,7 @@ export function exportToHTML(
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <title>Scribble Export</title>
   ${styles}
+  ${katexCdnCss}
   <style>
     :root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     body {
@@ -49,12 +54,95 @@ export function exportToHTML(
       font-family: system-ui, sans-serif;
       margin: 0;
     }
-    /* Hide any interactive controls if they survived */
-    .copy-btn, .copy-button-icon { display: none !important; }
-    .preview-wrapper { padding: 20px; }
+    .preview-wrapper { padding: 20px; overflow-x: auto; }
+
+    /* Sleek horizontal scrollbar styling */
+    .preview-wrapper,
+    .preview-wrapper pre,
+    .preview-wrapper .shiki {
+      scrollbar-width: thin; /* Firefox */
+      scrollbar-color: var(--code-accent, var(--theme-accent, #7aa2f7)) transparent;
+    }
+    .preview-wrapper::-webkit-scrollbar { height: 10px; width: 10px; }
+    .preview-wrapper::-webkit-scrollbar-thumb {
+      background-color: var(--code-accent, var(--theme-accent, #7aa2f7));
+      border-radius: 8px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+    .preview-wrapper::-webkit-scrollbar-track { background: transparent; }
   </style>
 </head>
-<body>${clone.outerHTML}</body>
+<body>
+${clone.outerHTML}
+<script>
+  (function(){
+    function getCodeFromButton(btn){
+      var container = btn.closest ? btn.closest('.code-container') : null;
+      if(!container) return '';
+      var pre = container.querySelector('pre');
+      if(pre && pre.textContent) return pre.textContent;
+      var code = container.querySelector('code');
+      return code && code.textContent ? code.textContent : '';
+    }
+    function fallbackCopy(text){
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly','');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch(e) {}
+      document.body.removeChild(ta);
+    }
+    function copyText(text){
+      if(!text) return;
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).catch(function(){ fallbackCopy(text); });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+    document.addEventListener('click', function(e){
+      var target = e.target;
+      if(!(target instanceof Element)) return;
+      var btn = target.closest ? target.closest('.copy-btn') : null;
+      if(btn){
+        e.preventDefault();
+        var text = getCodeFromButton(btn);
+        copyText(text);
+      }
+    });
+
+    // Click-to-activate horizontal scroll lock inside code blocks; disabled on mobile
+    (function(){
+      var isMobile = (function(){ try { return window.innerWidth < 768; } catch(_) { return false; } })();
+      var scrollLock = new WeakMap();
+      document.addEventListener('click', function(e){
+        var el = e.target instanceof Element ? e.target.closest('.code-container') : null;
+        if(!el) return;
+        if(isMobile) return;
+        var pre = el.querySelector('pre.shiki');
+        if(!pre) return;
+        var hasOverflow = pre.scrollWidth > pre.clientWidth;
+        scrollLock.set(el, !!hasOverflow);
+      });
+      document.addEventListener('wheel', function(e){
+        var el = e.target instanceof Element ? e.target.closest('.code-container') : null;
+        if(!el) return;
+        if(isMobile) return;
+        if(!scrollLock.get(el)) return;
+        var pre = el.querySelector('pre.shiki');
+        if(!pre) return;
+        e.preventDefault();
+        var dx = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        pre.scrollTo({ left: pre.scrollLeft + dx, behavior: 'smooth' });
+      }, { passive: false });
+    })();
+  })();
+</script>
+</body>
 </html>`;
 
   const blob = new Blob([html], { type: 'text/html' });
