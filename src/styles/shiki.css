@@ -4,7 +4,22 @@
   font-family: var(--font-mono, 'Fira Code', monospace);
   padding: 1rem;
   line-height: 1.5;
+  scroll-behavior: smooth;
 }
+
+/* Sleek horizontal scrollbar for code blocks */
+.shiki {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: var(--accent, var(--accent, #7aa2f7)) transparent;
+}
+.shiki::-webkit-scrollbar { height: 10px; }
+.shiki::-webkit-scrollbar-thumb {
+  background-color: var(--accent, var(--accent, #7aa2f7)) !important;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.shiki::-webkit-scrollbar-track { background: transparent !important; }
 
 /* Keep Shiki's inline/token colors intact; avoid overriding span styles */
 

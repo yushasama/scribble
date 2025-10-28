@@ -1,0 +1,42 @@
+/* Compact, sleek scrollbar uses actual Shiki accent */
+.shiki-block pre {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent, #88c0d0) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shiki-block pre::-webkit-scrollbar-thumb {
+  background-color: currentColor;
+  border-radius: 2px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.shiki-block pre:hover::-webkit-scrollbar-thumb {
+  opacity: 1;
+}
+
+/* Copy button */
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.copy-btn:hover {
+  opacity: 0.8;
+}
+
+/* Mobile keeps scrollbar visible */
+@media (max-width: 768px) {
+  .shiki-block pre {
+    scrollbar-width: thin;
+  }
+}

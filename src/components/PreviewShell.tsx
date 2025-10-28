@@ -121,7 +121,38 @@ export const PreviewShell: React.FC<PreviewShellProps> = ({
           background: var(--theme-bg);
           height: 100%;
           overflow-y: auto;
-          overflow-x: hidden;
+          overflow-x: auto;
+        }
+
+        /* Sleek scrollbars in preview */
+        .preview-wrapper,
+        .preview-wrapper pre,
+        .preview-wrapper .shiki {
+          scrollbar-width: thin; /* Firefox */
+          scrollbar-color: var(--theme-accent) transparent;
+        }
+        .preview-wrapper::-webkit-scrollbar { height: 10px; width: 10px; }
+        .preview-wrapper::-webkit-scrollbar-thumb {
+          background-color: var(--theme-accent);
+          border-radius: 8px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
+        .preview-wrapper::-webkit-scrollbar-track { background: transparent; }
+
+        .preview-wrapper pre::-webkit-scrollbar,
+        .preview-wrapper .shiki::-webkit-scrollbar {
+          height: 8px;
+          width: 8px;
+        }
+        .preview-wrapper pre::-webkit-scrollbar-thumb,
+        .preview-wrapper .shiki::-webkit-scrollbar-thumb {
+          background-color: var(--accent);
+          border-radius: 6px;
+        }
+        .preview-wrapper pre::-webkit-scrollbar-track,
+        .preview-wrapper .shiki::-webkit-scrollbar-track {
+          background: var(--accent);
         }
         
         .preview-wrapper h1, .preview-wrapper h2, .preview-wrapper h3, 
