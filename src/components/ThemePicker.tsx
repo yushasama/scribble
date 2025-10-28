@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { themes, codeThemes } from '../lib/themes';
-import { exportToPDF, exportToHTML, exportToMarkdown, debugPreviewPrint } from '../lib/export';
+import { exportPDF, exportToHTML, exportToMarkdown, debugPreviewPrint } from '../lib/export';
 
 interface ThemePickerProps {
   currentTheme: string;
@@ -101,7 +101,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({
       case 'pdf': {
         const previewElement = document.querySelector('.preview-wrapper') as HTMLElement;
         if (previewElement) {
-          await exportToPDF(previewElement);
+          await exportPDF(previewElement);
         } else {
           console.error('Preview element not found');
         }

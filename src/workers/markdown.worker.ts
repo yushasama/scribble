@@ -2,6 +2,7 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import imageSizeShorthand from '../lib/plugins/imageSizeShorthand';
 
 // Minimal worker that parses Markdown -> HAST off the main thread
 self.onmessage = async (e: MessageEvent<{ text: string }>) => {
@@ -9,6 +10,7 @@ self.onmessage = async (e: MessageEvent<{ text: string }>) => {
   try {
     const processor = unified()
       .use(remarkParse)
+      .use(imageSizeShorthand)
       .use(remarkGfm)
       .use(remarkMath);
 

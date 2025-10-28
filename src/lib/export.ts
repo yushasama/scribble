@@ -3,6 +3,8 @@
  * Markdown, HTML, and PDF export with multiple options
  */
 
+import html2pdf from "html2pdf.js";
+
 //
 // ─── MARKDOWN EXPORT ───────────────────────────────────────────────
 //
@@ -59,6 +61,248 @@ export function exportToHTML(
 
   const blob = new Blob([html], { type: 'text/html' });
   triggerDownload(blob, fileName);
+}
+
+
+//
+// ─── PDF EXPORT (html2pdf.js, high fidelity) ───────────────────────────
+//
+/**
+ * Exports the rendered preview to PDF with:
+ * - exact theme colors
+ * - no sliced equations or text
+ * - high-DPI rendering
+ */
+export async function exportPDF(node: HTMLElement): Promise<void> {
+  // 1. Wait for math + fonts to finish rendering
+  await new Promise((r) => setTimeout(r, 500));
+  if (document.fonts) await document.fonts.ready;
+
+  // 1b. Wrap long paragraphs and list items in export-safe containers to avoid mid-paragraph splits
+  document.querySelectorAll('p, li').forEach((el) => {
+    const parent = el.parentElement;
+    const parentHasWrapper = !!(parent && (parent.classList.contains('no-break-wrap') || parent.classList.contains('text-block')));
+    if (!parentHasWrapper) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'text-block no-break-wrap';
+      el.parentNode?.insertBefore(wrapper, el);
+      wrapper.appendChild(el);
+    }
+  });
+
+  // 2. Inject export-specific CSS to prevent mid-slices and preserve colors
+  const style = document.createElement("style");
+  style.textContent = `
+    /* Prevent math, code, or images from being sliced across pages */
+    .katex-display, .katex, pre, code, .shiki-block, .code-container, img, figure {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      display: block;
+    }
+
+    /* Full background color on every page */
+    html, body, .preview-wrapper {
+      background: var(--theme-bg, #0d1117) !important;
+      color: var(--theme-text, #e6edf3) !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* Ensure body fills the page so the bottom isn't white */
+    body {
+      min-height: 100vh;
+    }
+
+    /* Prevent inline text cuts */
+    * { box-decoration-break: clone; }
+
+    /* Optional: give big images a bit of top/bottom margin */
+    img, figure { margin: 0.5em 0; }
+
+    /* 🧱 Fix phantom gaps between consecutive dark blocks */
+    .shiki-block,
+    .code-container,
+    .katex-display,
+    .katex,
+    pre,
+    code {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+    }
+
+    /* Force consistent stacking, no margin collapse */
+    .shiki-block + *,
+    .katex-display + *,
+    pre + *,
+    code + * {
+      margin-top: 0.3rem !important;
+    }
+
+    /* Kill html2canvas phantom gaps from overflow or border rounding */
+    .preview-wrapper * {
+      transform: translateZ(0);
+      overflow-anchor: none;
+    }
+
+    /* Fix huge gaps before code or math blocks */
+    h1, h2, h3, h4, h5, h6, p, li {
+      margin-bottom: 0.4rem !important;
+    }
+
+    .shiki-block,
+    .code-container,
+    pre,
+    code,
+    .katex-display,
+    .katex {
+      margin-top: 0 !important;
+      margin-bottom: 0 !important;
+      line-height: 1.45 !important;
+    }
+
+    /* Smooth spacing after text elements before dark blocks */
+    p + .shiki-block,
+    p + pre,
+    p + .katex-display,
+    li + .shiki-block,
+    li + pre,
+    li + .katex-display,
+    h1 + .shiki-block,
+    h2 + .shiki-block {
+      margin-top: 0.3rem !important;
+    }
+
+    /* Ensure html2canvas doesn’t mis-measure dark containers */
+    .preview-wrapper * {
+      backface-visibility: hidden;
+    }
+
+    /* 🧷 Keep full paragraphs and list items together */
+    .text-block,
+    .no-break-wrap,
+    p,
+    li {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      display: block;
+    }
+
+    /* 📖 Ensure nice vertical rhythm */
+    p, li, .text-block { margin-bottom: 0.6rem !important; }
+
+    /* Default: avoid breaking inside blocks */
+    .katex-display, .katex, pre, code, .shiki-block, .code-container, img, figure {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      display: block;
+    }
+
+    /* Allow soft breaks for very tall blocks */
+    @media print {
+      .tall-block {
+        page-break-inside: auto !important;
+        break-inside: auto !important;
+      }
+      /* Optional: heading page-start helpers */
+      h2, h3 { page-break-before: auto !important; }
+      h2.page-start, h3.page-start { page-break-before: always !important; }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // 3. Ensure KaTeX blocks have real height before rendering
+  document.querySelectorAll(".katex-display").forEach((el) => {
+    (el as HTMLElement).style.minHeight = `${(el as HTMLElement).getBoundingClientRect().height}px`;
+  });
+
+  // 3b. Optional: allow emergency image splitting only if unavoidable (extremely tall images)
+  document.querySelectorAll("img").forEach((img) => {
+    const h = (img as HTMLElement).getBoundingClientRect().height;
+    if (h > 1100) (img as HTMLElement).style.pageBreakInside = "auto";
+  });
+
+  // 4. html2pdf configuration
+  const opt = {
+    margin: 0,
+    filename: "scribble-export.pdf",
+    image: { type: "jpeg", quality: 1 },
+    html2canvas: {
+      scale: 2.5,
+      useCORS: true,
+      backgroundColor: null,
+      logging: false,
+      windowWidth: node.scrollWidth,
+      dpi: 192,
+      letterRendering: true,
+    },
+    pagebreak: {
+      mode: ["css", "legacy"], // honor our "avoid" rules
+      avoid: [
+        ".text-block",
+        "p",
+        "li",
+        ".katex-display",
+        ".katex",
+        "pre",
+        "code",
+        ".code-container",
+        ".shiki-block",
+        "img",
+        "figure"
+      ]
+    },
+    jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
+  } as const;
+
+  // 5. Generate and save the PDF
+  // Normalize Shiki/code container spacing before capture
+  document.querySelectorAll('.shiki, .code-container').forEach(el => {
+    (el as HTMLElement).style.lineHeight = '1.4';
+    (el as HTMLElement).style.margin = '0';
+    (el as HTMLElement).style.paddingBottom = '0.5em';
+  });
+  // Normalize heading and paragraph margins to avoid compounded gaps
+  document.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(el => {
+    (el as HTMLElement).style.marginTop = '0';
+    (el as HTMLElement).style.marginBottom = '0.5rem';
+  });
+  // Tighten padding on dark blocks
+  document.querySelectorAll('.shiki, .code-container, .katex-display').forEach(el => {
+    (el as HTMLElement).style.paddingTop = '0.4em';
+    (el as HTMLElement).style.paddingBottom = '0.4em';
+  });
+  // Detect tall/does-not-fit blocks and allow soft page breaks for code/math only
+  const PAGE_HEIGHT_PX = Math.round((297 / 25.4) * 96);
+  const nodeTop = node.getBoundingClientRect().top + window.scrollY;
+  document.querySelectorAll('.shiki-block, .code-container, .katex-display').forEach((el) => {
+    const rect = (el as HTMLElement).getBoundingClientRect();
+    const h = rect.height;
+    const absTop = rect.top + window.scrollY - nodeTop;
+    const remainingOnPage = PAGE_HEIGHT_PX - (Math.round(absTop) % PAGE_HEIGHT_PX);
+    if (h > PAGE_HEIGHT_PX * 0.65 || h > remainingOnPage - 8) {
+      (el as HTMLElement).classList.add('tall-block');
+    }
+  });
+  // Anti-slice compositor stabilization (injected right before capture)
+  const antiSliceFix = document.createElement('style');
+  antiSliceFix.textContent = `
+    /* 🩹 Fix sliced text and faint horizontal seams */
+    * { transform: translateZ(0); backface-visibility: hidden; -webkit-font-smoothing: antialiased; }
+    body, .preview-wrapper { image-rendering: -webkit-optimize-contrast; text-rendering: geometricPrecision; }
+    /* Keep inline text unified within its block to avoid seam lines */
+    p, li, h1, h2, h3, h4, h5, h6, div { break-inside: avoid !important; page-break-inside: avoid !important; }
+    /* Force block formatting context to prevent margin-collapsing + reclaim empty space */
+    .text-block, .no-break-wrap, p, li { contain: layout paint; overflow: visible; }
+    html, body { background: var(--theme-bg, #0d1117) !important; }
+  `;
+  document.head.appendChild(antiSliceFix);
+  // Ensure full-height rendering and background coverage
+  node.style.minHeight = node.scrollHeight + "px";
+  await html2pdf().set(opt).from(node).save();
+
+  // 6. Clean up injected CSS
+  style.remove();
+  antiSliceFix.remove();
 }
 
 //

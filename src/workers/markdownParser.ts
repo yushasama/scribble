@@ -3,6 +3,7 @@ import remarkParse from 'remark-parse'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import remarkSourceMap from '../utils/remarkSourceMap'
+import imageSizeShorthand from '../lib/plugins/imageSizeShorthand'
 
 // Worker for off-thread Markdown parsing
 self.onmessage = (e: MessageEvent<{ content: string; theme: string }>) => {
@@ -11,6 +12,7 @@ self.onmessage = (e: MessageEvent<{ content: string; theme: string }>) => {
   try {
     const processor = unified()
       .use(remarkParse)
+      .use(imageSizeShorthand)
       .use(remarkGfm)
       .use(remarkMath, { singleDollarTextMath: true })
       .use(remarkSourceMap)

@@ -9,6 +9,7 @@ import { MermaidRenderer } from './MermaidRenderer'
 import { CodeRenderer } from './CodeRenderer'
 import { type Theme } from '../../lib/themes'
 import remarkSourceMap from '../../utils/remarkSourceMap'
+import imageSizeShorthand from '../../lib/plugins/imageSizeShorthand'
 
 interface MarkdownRendererProps {
   content: string
@@ -20,6 +21,7 @@ export const MarkdownRenderer = React.memo(({ content, theme, codeTheme }: Markd
   const remarkPlugins = useMemo(() => (
     [
       remarkSourceMap as unknown as never,
+      imageSizeShorthand as unknown as never,
       remarkGfm as unknown as never,
       [remarkMath, { singleDollarTextMath: true }] as unknown as never,
     ]

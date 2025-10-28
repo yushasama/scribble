@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
+import { languages } from '@codemirror/language-data';
+import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { indentWithTab } from '@codemirror/commands';
 import { keymap } from '@codemirror/view';
 import { search, highlightSelectionMatches } from '@codemirror/search';
@@ -9,9 +11,7 @@ import { themes, type Theme } from '../lib/themes';
 import './Editor.css';
 // Function to generate editor theme based on the selected theme
 const createEditorTheme = (theme: Theme) => {
-  // Simple, visible selection colors for light mode
-  const selColor = '#ff0000';  // Bright red for testing
-  const selColorFocused = '#cc0000';  // Darker red when focused
+  // Selection uses native ::selection via CSS; keep only search/match accents
   
   // Debug logs removed for performance
 
@@ -47,18 +47,12 @@ const createEditorTheme = (theme: Theme) => {
     '.cm-activeLine': { 
       background: '#f5f5f5' 
     },
-    '.cm-selectionBackground': {
-      background: selColor,
-    },
-    '&.cm-focused .cm-selectionBackground': {
-      background: selColorFocused,
-    },
     '.cm-selectionMatch': {
-      background: selColor,
+      background: theme.accent,
       borderRadius: '2px',
     },
     '.cm-matchingBracket': {
-      background: selColor,
+      background: 'rgba(0,0,0,0.06)',
       outline: `1px solid ${theme.accent}`,
     },
     '.cm-nonmatchingBracket': {
@@ -255,7 +249,7 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, theme, editorRe
       doc: value,
       extensions: [
         basicSetup,
-        markdown(),
+        markdown({ codeLanguages: languages }),
         search(),
         highlightSelectionMatches(),
         keymap.of([indentWithTab]),
@@ -298,19 +292,14 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, theme, editorRe
             hyphens: 'auto',
             maxWidth: '100%',
           },
-          // Force selection colors here too
-          '.cm-selectionBackground': {
-            background: '#ff0000 !important',
-          },
-          '&.cm-focused .cm-selectionBackground': {
-            background: '#cc0000 !important',
-          },
           '.cm-selectionMatch': {
-            background: '#ff0000 !important',
+            background: '#007acc',
             borderRadius: '2px',
           },
         }),
         createEditorTheme(currentTheme),
+        // Ensure default token colors load after theme so they aren't overridden
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       ],
     });
 
@@ -422,27 +411,12 @@ export const Editor: React.FC<EditorProps> = ({ value, onChange, theme, editorRe
             to { background: transparent !important; }
           }
           
-          /* Nuclear selection highlighting */
-          .cm-selectionBackground,
-          .cm-editor .cm-selectionBackground,
-          .cm-content .cm-selectionBackground,
-          .cm-line .cm-selectionBackground {
-            background: #ff0000 !important;
-            background-color: #ff0000 !important;
-          }
-          
-          .cm-focused .cm-selectionBackground,
-          .cm-editor.cm-focused .cm-selectionBackground,
-          .cm-content.cm-focused .cm-selectionBackground {
-            background: #cc0000 !important;
-            background-color: #cc0000 !important;
-          }
-          
+          /* Selection uses native ::selection; keep search match styling only */
           .cm-selectionMatch,
           .cm-editor .cm-selectionMatch,
           .cm-content .cm-selectionMatch {
-            background: #ff0000 !important;
-            background-color: #ff0000 !important;
+            background: #007acc !important;
+            background-color: #007acc !important;
           }
         `
       }} />
