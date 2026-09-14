@@ -69,7 +69,7 @@ export const MarkdownRenderer = React.memo(({ content, theme, codeTheme }: Markd
   }, [theme, codeTheme])
 
   const Pre = useCallback(({ children, ...props }: { children?: React.ReactNode }) => {
-    if (React.isValidElement(children)) return children
+    if (React.isValidElement<{ className?: string }>(children) && children.props.className) return children
     return <pre {...props}>{children}</pre>
   }, [])
 

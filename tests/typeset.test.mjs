@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile, readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import puppeteer from 'puppeteer-core'
 import { PDFDocument, PDFName } from 'pdf-lib'
 
-const config = { url: process.env.SCRIBBLE_TEST_URL || 'http://localhost:5173', browser: process.env.SCRIBBLE_TEST_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe', output: resolve(import.meta.dirname, '../node_modules/.tmp/typeset-tests') }
+const config = { pdfText: process.env.SCRIBBLE_PDFTOTEXT || 'pdftotext', url: process.env.SCRIBBLE_TEST_URL || 'http://localhost:5173', browser: process.env.SCRIBBLE_TEST_BROWSER || 'C:/Program Files/Google/Chrome/Application/chrome.exe', output: resolve(import.meta.dirname, '../node_modules/.tmp/typeset-tests') }
 await mkdir(config.output, { recursive: true })
 const browser = await puppeteer.launch({ executablePath: config.browser, headless: true })
 try {
@@ -17,8 +18,9 @@ try {
     const canvas = document.createElement('canvas'); canvas.width = 600; canvas.height = 400
     const ctx = canvas.getContext('2d'); ctx.fillStyle = '#789'; ctx.fillRect(0, 0, 600, 400); ctx.fillStyle = '#234'; ctx.fillRect(30, 30, 540, 340)
     const image = canvas.toDataURL()
+    const ping = '### 5. Ping\n\nUseful options: `-n` sets the request count, `-t` runs continuously, `-l` changes data size, and `-w` sets the reply timeout. `-4` and `-6` select the IP version.\n\n![Ping help](/vite.svg)\n\n**(a)** No packets lost. Google\'s RTT ranged from **10\u201312 ms**, with a reported average of **10 ms**.\n\n```\nping -n 4 example.com\n    Reply from example.com\n```'
     const prose = 'A document should make sustained reading comfortable. Its hierarchy establishes where an idea begins, while the paragraph rhythm carries the argument forward.'
-    localStorage.setItem('scribble-data', JSON.stringify({ content: `# A study in document rhythm\n\n## Reading and structure\n\n${prose}\n\n${prose}\n\n[Read the source](https://example.com)\n\n- A readable list\n\n  A loose list paragraph.\n\n> A quotation with its own rhythm.\n\n![A neutral figure](/vite.svg)![[|70%]]\n\n## Further observations\n\n${prose}\n\n${Array(12).fill(prose).join('\n\n')}\n\n| A | B |\n|---|---|\n| One | Two |\n\n$E=mc^2$\n\n\`\`\`js\nconst value = 1\n\`\`\``, theme: 'GitHub Dark', settings: { presentation: { style: 'editorial', paragraphs: 'indented', background: { image, opacity: .15, dimming: .2, fit: 'cover', position: 'center' } } } }))
+    localStorage.setItem('scribble-data', JSON.stringify({ content: `# A study in document rhythm\n\n## Reading and structure\n\n${prose}\n\n${prose}\n\n[Read the source](https://example.com)\n\n- A readable list\n\n  A loose list paragraph.\n\n> A quotation with its own rhythm.\n\n![A neutral figure](/vite.svg)![[|70%]]\n\n## Further observations\n\n${prose}\n\n${Array(3).fill(prose).join('\n\n')}\n\n${ping}\n\n| A | B |\n|---|---|\n| One | Two |\n\n$E=mc^2$\n\n\`\`\`js\nconst value = 1\n\`\`\``, theme: 'GitHub Dark', settings: { presentation: { style: 'editorial', paragraphs: 'indented', background: { image, opacity: .15, dimming: .2, fit: 'cover', position: 'center' } } } }))
   })
   await page.reload()
   await page.waitForSelector('.preview-wrapper[data-typeset="editorial"] .katex')
@@ -34,13 +36,36 @@ try {
   const exported = await browser.newPage(); await exported.setRequestInterception(true); exported.on('request', request => { if (/^https?:/.test(request.url()) && !request.url().includes('localhost:5173') && !request.url().includes('127.0.0.1:5173')) void request.abort(); else void request.continue() }); await exported.setViewport({ width: 900, height: 1000 }); await exported.setContent(html, { waitUntil: 'networkidle0' })
   assert.equal(await exported.$eval('.preview-wrapper > p + p', element => getComputedStyle(element).textIndent), '23.2px')
   await exported.screenshot({ path: resolve(config.output, 'html.png') })
+  const printHTML = await page.evaluate(async () => (await import('/src/lib/export.ts')).createPrintHTML(document.querySelector('.preview-wrapper')))
+  await writeFile(resolve(config.output, 'print.html'), printHTML)
+  await exported.goto(config.url); await exported.setContent(printHTML, { waitUntil: 'load' })
+  await exported.evaluate(async () => { await Promise.all(Array.from(document.images).map(image => image.decode())) })
+  await exported.pdf({ path: resolve(config.output, 'document.pdf'), preferCSSPageSize: true, printBackground: true, displayHeaderFooter: false })
+  const extracted = execFileSync(config.pdfText, [resolve(config.output, 'document.pdf'), '-'], { encoding: 'utf8' }).replace(/\s+/g, ' ')
+  assert.ok(extracted.includes('A study in document rhythm'))
+  assert.ok(extracted.includes('Useful options:'))
+  for (const flag of ['-n', '-t', '-l', '-w', '-4', '-6']) assert.ok(extracted.includes(flag), `Missing inline code ${flag}`)
+  assert.ok(extracted.includes('select the IP version.'))
+  assert.ok(extracted.includes('ping -n 4 example.com'))
+  assert.ok(extracted.includes('const value = 1'))
+  assert.equal(await exported.$eval('.preview-wrapper pre:not(.shiki)', element => getComputedStyle(element).whiteSpace), 'pre')
   await exported.close()
   await page.bringToFront()
-  const cdp = await page.createCDPSession(); await cdp.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: config.output })
-  console.log('Exporting PDF')
-  await page.evaluate(async () => (await import('/src/lib/export.ts')).exportPDF(document.querySelector('.preview-wrapper'), 'document.pdf'))
+  await page.evaluate(async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'contentWindow')
+    Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', { configurable: true, get() {
+      const value = descriptor.get.call(this)
+      if (this.className === 'scribble-print-frame' && value) value.print = () => { this.dataset.printRequested = 'true' }
+      return value
+    } })
+    try { await (await import('/src/lib/export.ts')).exportPDF(document.querySelector('.preview-wrapper'), 'document.pdf') }
+    finally { Object.defineProperty(HTMLIFrameElement.prototype, 'contentWindow', descriptor) }
+  })
+  assert.equal(await page.$eval('.scribble-print-frame', frame => frame.dataset.printRequested), 'true')
+  await page.$eval('.scribble-print-frame', frame => frame.contentWindow.dispatchEvent(new Event('afterprint')))
+  await page.waitForFunction(() => !document.querySelector('.scribble-print-frame'))
   const pdf = await PDFDocument.load(await readFile(resolve(config.output, 'document.pdf')))
-  assert.ok(pdf.getPageCount() >= 2 && pdf.getPageCount() <= 3)
+  assert.ok(pdf.getPageCount() >= 2 && pdf.getPageCount() <= 5)
   assert.ok(pdf.getPages().some(page => page.node.get(PDFName.of('Annots'))))
   const parsed = await page.evaluate(async () => {
     const { parsePresentation } = await import('/src/lib/typeset/settings.ts')

@@ -17,7 +17,7 @@ type ExportState = { message: string; tone: 'idle' | 'working' | 'success' | 'er
 const exportLabels: Record<ExportAction, string> = {
   markdown: 'Markdown downloaded',
   html: 'HTML downloaded',
-  pdf: 'PDF downloaded',
+  pdf: 'Choose Save as PDF in the print dialog',
 }
 
 export const ThemePicker: React.FC<ThemePickerProps> = ({ currentTheme, onThemeChange, currentCodeTheme, onCodeThemeChange, content, onReset }) => {
@@ -111,7 +111,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ currentTheme, onThemeC
           {showExportDropdown && (
             <div className="export-menu" role="menu" aria-label="Export document">
               <div className="export-menu-heading">Take it with you</div>
-              <ExportOption title="PDF" detail="Paginated document" icon="PDF" onClick={() => void handleExport('pdf')} />
+              <ExportOption title="PDF" detail="Save as PDF · selectable text" icon="PDF" onClick={() => void handleExport('pdf')} />
               <ExportOption title="HTML" detail="Standalone webpage" icon="HTML" onClick={() => void handleExport('html')} />
               <ExportOption title="Markdown" detail="Original source file" icon="MD" onClick={() => void handleExport('markdown')} />
             </div>
