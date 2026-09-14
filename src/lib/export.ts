@@ -67,6 +67,7 @@ export async function exportPDF(sourceElement: HTMLElement, fileName = 'scribble
 
   try {
     await waitForExportAssets(exportDocument)
+    for (const paragraph of exportDocument.querySelectorAll<HTMLElement>('p')) paragraph.style.textIndent = getComputedStyle(paragraph).textIndent
     preparePDFPagination(exportDocument)
     const pageCount = Math.max(1, Math.ceil(exportDocument.scrollHeight / PDF_CONTENT_HEIGHT_PX))
     exportDocument.style.height = `${pageCount * PDF_CONTENT_HEIGHT_PX}px`
@@ -94,6 +95,16 @@ export async function exportPDF(sourceElement: HTMLElement, fileName = 'scribble
       pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST')
     }
 
+    const origin = exportDocument.getBoundingClientRect()
+    for (const anchor of exportDocument.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+      if (!/^(https?:|mailto:)/i.test(anchor.href)) continue
+      for (const rect of anchor.getClientRects()) {
+        const top = rect.top - origin.top
+        const page = Math.floor(top / PDF_CONTENT_HEIGHT_PX)
+        pdf.setPage(page + 1)
+        pdf.link((rect.left - origin.left) * pdfWidth / PDF_PAGE_WIDTH_PX, (top % PDF_CONTENT_HEIGHT_PX + PDF_PAGE_PADDING_PX) * pdfHeight / PDF_PAGE_HEIGHT_PX, rect.width * pdfWidth / PDF_PAGE_WIDTH_PX, rect.height * pdfHeight / PDF_PAGE_HEIGHT_PX, { url: anchor.href })
+      }
+    }
     pdf.save(fileName)
   } finally {
     host.remove()
@@ -114,16 +125,16 @@ function createPDFDocument(sourceElement: HTMLElement): { host: HTMLDivElement; 
   exportDocument.style.boxSizing = 'border-box'
   exportDocument.style.width = `${PDF_PAGE_WIDTH_PX}px`
   exportDocument.style.height = 'auto'
-  exportDocument.style.minHeight = `${PDF_PAGE_HEIGHT_PX}px`
+  exportDocument.style.minHeight = `${PDF_CONTENT_HEIGHT_PX}px`
   exportDocument.style.overflow = 'visible'
   exportDocument.style.padding = `0 ${PDF_PAGE_PADDING_PX}px`
-  exportDocument.style.background = background
+  exportDocument.style.backgroundColor = background
   exportDocument.style.color = foreground
 
   const style = document.createElement('style')
   style.textContent = `
     .scribble-pdf-document, .scribble-pdf-document * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    .scribble-pdf-document img { display: block; width: auto; max-width: 100% !important; max-height: ${PDF_CONTENT_HEIGHT_PX - 48}px; object-fit: contain; break-inside: avoid; }
+    .scribble-pdf-document :not(.typeset-background) > img { display: block; max-width: 100% !important; max-height: ${PDF_CONTENT_HEIGHT_PX - 48}px; object-fit: contain; break-inside: avoid; }
     .scribble-pdf-document figure, .scribble-pdf-document table, .scribble-pdf-document blockquote, .scribble-pdf-document .code-container, .scribble-pdf-document .shiki-block, .scribble-pdf-document .katex-display, .scribble-pdf-document .mermaid-block { break-inside: avoid; page-break-inside: avoid; }
     .scribble-pdf-document h1, .scribble-pdf-document h2, .scribble-pdf-document h3, .scribble-pdf-document h4, .scribble-pdf-document h5, .scribble-pdf-document h6 { break-after: avoid-page; page-break-after: avoid; }
     .scribble-pdf-document .code-container { overflow: hidden; }
@@ -135,32 +146,30 @@ function createPDFDocument(sourceElement: HTMLElement): { host: HTMLDivElement; 
 }
 
 function preparePDFPagination(exportDocument: HTMLElement): void {
-  preparePDFSections(exportDocument)
-  const blocks = Array.from(exportDocument.querySelectorAll<HTMLElement>(PDF_ATOMIC_SELECTOR)).filter((element) => !element.parentElement?.closest(PDF_ATOMIC_SELECTOR))
-  for (const block of blocks) {
-    insertPDFPageSpacer(exportDocument, block, block.getBoundingClientRect().height)
+  for (const image of exportDocument.querySelectorAll<HTMLImageElement>('img')) {
+    if (image.closest('.typeset-background') || !image.naturalHeight) continue
+    const maximumWidth = (PDF_CONTENT_HEIGHT_PX - 48) * image.naturalWidth / image.naturalHeight
+    if (image.getBoundingClientRect().width > maximumWidth) image.style.width = `${maximumWidth}px`
   }
-}
-
-function preparePDFSections(exportDocument: HTMLElement): void {
-  const blocks = Array.from(exportDocument.children).filter((element): element is HTMLElement => element instanceof HTMLElement)
-  const headingIndexes = blocks.flatMap((block, index) => block.matches(PDF_HEADING_SELECTOR) ? [index] : [])
-
-  for (let sectionIndex = 0; sectionIndex < headingIndexes.length; sectionIndex += 1) {
-    const startIndex = headingIndexes[sectionIndex]
-    const endIndex = headingIndexes[sectionIndex + 1] ?? blocks.length
-    const heading = blocks[startIndex]
-    const sectionEnd = blocks[endIndex - 1]
-    const sectionHeight = sectionEnd.getBoundingClientRect().bottom - heading.getBoundingClientRect().top
-    if (sectionHeight <= PDF_CONTENT_HEIGHT_PX) {
-      insertPDFPageSpacer(exportDocument, heading, sectionHeight)
-      continue
+  const blocks = Array.from(exportDocument.querySelectorAll<HTMLElement>(PDF_ATOMIC_SELECTOR)).filter((element) => !element.parentElement?.closest(PDF_ATOMIC_SELECTOR) && !element.closest('.typeset-background'))
+  for (const block of blocks) {
+    if (block.matches(PDF_HEADING_SELECTOR)) {
+      const opening = block.nextElementSibling
+      if (opening instanceof HTMLElement) {
+        const openingHeight = opening.getBoundingClientRect().height
+        const height = opening.getBoundingClientRect().top - block.getBoundingClientRect().top + Math.min(openingHeight, PDF_CONTENT_HEIGHT_PX * .5)
+        insertPDFPageSpacer(exportDocument, block, height)
+      }
     }
-
-    const openingBlock = blocks[startIndex + 1]
-    if (!openingBlock || openingBlock.matches(PDF_HEADING_SELECTOR)) continue
-    const openingHeight = openingBlock.getBoundingClientRect().bottom - heading.getBoundingClientRect().top
-    insertPDFPageSpacer(exportDocument, heading, openingHeight)
+    const image = block.matches('img') ? block as HTMLImageElement : block.querySelector<HTMLImageElement>('img')
+    const top = block.getBoundingClientRect().top - exportDocument.getBoundingClientRect().top
+    const remaining = PDF_CONTENT_HEIGHT_PX - top % PDF_CONTENT_HEIGHT_PX
+    const height = block.getBoundingClientRect().height
+    if (image && remaining > PDF_CONTENT_HEIGHT_PX * .3 && height > remaining && remaining / height >= .65) {
+      image.style.maxHeight = `${Math.max(1, image.getBoundingClientRect().height - (height - remaining) - 8)}px`
+      image.style.width = 'auto'
+    }
+    insertPDFPageSpacer(exportDocument, block, block.getBoundingClientRect().height)
   }
 }
 
@@ -179,6 +188,9 @@ function insertPDFPageSpacer(exportDocument: HTMLElement, block: HTMLElement, bl
 async function waitForExportAssets(exportDocument: HTMLElement): Promise<void> {
   if (document.fonts) await document.fonts.ready
   await Promise.all(Array.from(exportDocument.querySelectorAll('img')).map((image) => waitForImage(image)))
+  const layer = exportDocument.querySelector<HTMLElement>('.typeset-background > div')
+  const imageURL = layer?.style.backgroundImage.match(/^url\(["']?(.*?)["']?\)$/)?.[1]
+  if (imageURL) { const image = new Image(); image.src = imageURL; await waitForImage(image) }
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
 }
 

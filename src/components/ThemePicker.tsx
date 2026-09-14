@@ -86,7 +86,7 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ currentTheme, onThemeC
   return (
     <div className="theme-picker">
       <div className="theme-section">
-        <label htmlFor="theme-select">Preview Theme:</label>
+        <label htmlFor="theme-select">Color Theme:</label>
         <select id="theme-select" value={currentTheme} onChange={(event) => onThemeChange(event.target.value)} onKeyDown={handleThemeKeyDown} className="theme-select">
           {themes.map((theme) => <option key={theme.name} value={theme.name}>{theme.name}</option>)}
         </select>

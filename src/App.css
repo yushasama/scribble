@@ -426,10 +426,8 @@
 
 .preview-wrapper {
   flex: 1;
-  overflow: auto;
   width: 100%;
-  height: 100%;
-  background: var(--theme-bg, #ffffff) !important;
+  background-color: var(--theme-bg, #ffffff) !important;
   color: var(--theme-text, #000000) !important;
 }
 
@@ -609,3 +607,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #959da5;
 }
+
+.preview-viewport { flex: 1; min-height: 0; width: 100%; overflow: auto; }
+.preview-viewport > .preview-wrapper { height: auto; min-height: 100%; overflow: visible; }

@@ -6,10 +6,13 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { debounce } from './lib/utils/debounce';
 import demoContent from './demo-content.md?raw';
 import './App.css';
+import { DocumentStylePicker } from './components/DocumentStylePicker';
+import { defaultPresentation, parsePresentation } from './lib/typeset/settings';
 import type { EditorView } from '@codemirror/view';
 
 function App() {
   const [content, setContent] = useState(demoContent);
+  const [presentation, setPresentation] = useState(defaultPresentation);
   const [theme, setTheme] = useState('GitHub Dark');
   const [codeTheme, setCodeTheme] = useState('nord');
   const [isLoaded, setIsLoaded] = useState(false);
@@ -40,6 +43,7 @@ function App() {
       try {
         const data = JSON.parse(saved);
         setContent(data.content);
+        setPresentation(parsePresentation(data.settings?.presentation));
         setTheme(data.theme || 'GitHub Dark');
         setCodeTheme(data.settings?.codeTheme || 'nord');
         setSplitSize(data.settings?.splitSize || 50);
@@ -63,6 +67,7 @@ function App() {
         content,
         theme,
         settings: {
+          presentation,
           codeTheme,
           splitSize,
           lineHeight: 1.6,
@@ -71,7 +76,7 @@ function App() {
       };
       saveState(data);
     }
-  }, [content, theme, codeTheme, splitSize, isLoaded, saveState]);
+  }, [content, theme, codeTheme, splitSize, presentation, isLoaded, saveState]);
 
   const debouncedPaint = useMemo(() => debounce((s: unknown) => setRenderContent(String(s)), 120), []);
   useEffect(() => { debouncedPaint(content); }, [content, debouncedPaint]);
@@ -106,6 +111,7 @@ function App() {
       <div className="app-header">
         <h1>Scribble</h1>
         <div className="app-controls">
+          <DocumentStylePicker value={presentation} onChange={setPresentation} />
           <ThemePicker 
             currentTheme={theme} 
             onThemeChange={setTheme}
@@ -135,6 +141,7 @@ function App() {
           <Panel defaultSize={100 - splitSize} minSize={20} maxSize={80} className="preview-panel">
             <div className="panel-header">Preview</div>
             <Preview
+              presentation={presentation}
               content={renderContent}
               theme={theme}
               codeTheme={codeTheme}

@@ -1,0 +1,7 @@
+.document-style-picker { position: relative; font-size: 13px; color: #24292e; }
+.document-style-picker summary { cursor: pointer; white-space: nowrap; padding: 8px; }
+.document-style-options { position: absolute; right: 0; top: 100%; z-index: 100; width: min(300px, 80vw); max-height: 70vh; overflow: auto; padding: 18px; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; box-shadow: 0 8px 24px #0002; display: grid; gap: 14px; }
+.document-style-options label { display: grid; gap: 6px; }
+.document-style-options select, .document-style-options button { padding: 7px; border: 1px solid #d0d7de; border-radius: 4px; background: white; color: #24292e; }
+.document-style-options input { max-width: 100%; }
+.document-style-options p { margin: 0; color: #b42318; }

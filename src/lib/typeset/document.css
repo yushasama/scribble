@@ -1,0 +1,242 @@
+
+        .preview-wrapper {
+          box-shadow: none;
+          text-shadow: none;
+          padding: 20px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+          line-height: 1.6;
+          color: var(--theme-text);
+          background-color: var(--theme-bg);
+          min-height: 100%;
+          overflow-y: auto;
+          overflow-x: auto;
+        }
+
+        /* Sleek scrollbars in preview */
+        .preview-wrapper,
+        .preview-wrapper pre,
+        .preview-wrapper .shiki {
+          scrollbar-width: thin; /* Firefox */
+          scrollbar-color: var(--theme-accent) transparent;
+        }
+        .preview-wrapper::-webkit-scrollbar { height: 10px; width: 10px; }
+        .preview-wrapper::-webkit-scrollbar-thumb {
+          background-color: var(--theme-accent);
+          border-radius: 8px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
+        .preview-wrapper::-webkit-scrollbar-track { background: transparent; }
+
+        .preview-wrapper pre::-webkit-scrollbar,
+        .preview-wrapper .shiki::-webkit-scrollbar {
+          height: 8px;
+          width: 8px;
+        }
+        .preview-wrapper pre::-webkit-scrollbar-thumb,
+        .preview-wrapper .shiki::-webkit-scrollbar-thumb {
+          background-color: var(--accent);
+          border-radius: 6px;
+        }
+        .preview-wrapper pre::-webkit-scrollbar-track,
+        .preview-wrapper .shiki::-webkit-scrollbar-track {
+          background: var(--accent);
+        }
+        
+        .preview-wrapper h1, .preview-wrapper h2, .preview-wrapper h3, 
+        .preview-wrapper h4, .preview-wrapper h5, .preview-wrapper h6 {
+          margin-top: 1.5em;
+          margin-bottom: 0.5em;
+          font-weight: 600;
+          line-height: 1.25;
+          color: var(--theme-text);
+        }
+        
+        .preview-wrapper h1 { font-size: 2em; border-bottom: 1px solid var(--theme-border); padding-bottom: 0.3em; }
+        .preview-wrapper h2 { font-size: 1.5em; border-bottom: 1px solid var(--theme-border); padding-bottom: 0.3em; }
+        .preview-wrapper h3 { font-size: 1.25em; }
+        .preview-wrapper h4 { font-size: 1em; }
+        .preview-wrapper h5 { font-size: 0.875em; }
+        .preview-wrapper h6 { font-size: 0.85em; color: var(--theme-text); opacity: 0.8; }
+        
+        .preview-wrapper p {
+          margin: 1em 0;
+          color: var(--theme-text);
+        }
+        
+        .preview-wrapper ul, .preview-wrapper ol {
+          margin: 1em 0;
+          padding-left: 2em;
+        }
+        
+        .preview-wrapper li {
+          margin: 0.25em 0;
+          color: var(--theme-text);
+        }
+        
+        .preview-wrapper blockquote {
+          margin: 1em 0;
+          padding: 0 1em;
+          border-left: 4px solid var(--theme-accent);
+          color: var(--theme-text);
+          opacity: 0.8;
+        }
+        
+        .preview-wrapper table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 1em 0;
+        }
+        
+        .preview-wrapper th, .preview-wrapper td {
+          border: 1px solid var(--theme-border);
+          padding: 0.5em;
+          text-align: left;
+        }
+        
+        .preview-wrapper th {
+          background: var(--code-bg);
+          font-weight: 600;
+          color: var(--theme-text);
+        }
+        
+        .preview-wrapper td {
+          background-color: var(--theme-bg);
+          color: var(--theme-text);
+        }
+        
+        /* Inline code styling (avoid affecting Shiki blocks) */
+        .preview-wrapper :not(pre) > code {
+          background: var(--code-bg);
+          color: var(--code-text);
+          padding: 0.2em 0.4em;
+          border-radius: 3px;
+          font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+          font-size: 0.9em;
+        }
+        
+        .preview-wrapper pre:not(.shiki) {
+          background: var(--code-bg);
+          color: var(--code-text);
+          padding: 1em;
+          border-radius: 6px;
+          overflow-x: auto;
+          margin: 1em 0;
+          font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+          line-height: 1.4;
+          border: 1px solid var(--theme-border);
+        }
+        
+        .preview-wrapper pre:not(.shiki) code {
+          background: none;
+          padding: 0;
+          border-radius: 0;
+          color: inherit;
+        }
+        
+        .preview-wrapper a {
+          color: var(--theme-accent);
+          text-decoration: none;
+        }
+        
+        .preview-wrapper a:hover {
+          text-decoration: underline;
+        }
+        
+        .preview-wrapper hr {
+          border: none;
+          border-top: 1.5px solid var(--theme-accent);
+          margin: 2em 0;
+        }
+        
+        .preview-wrapper img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 4px;
+          margin: 1em 0;
+        }
+
+        /* Ensure KaTeX lines do not break awkwardly */
+        .katex { white-space: normal; }
+        .katex-display { overflow-x: auto; }
+        
+        .mermaid-block {
+          margin: 1em 0;
+          text-align: center;
+          min-height: 24px;
+          overflow: visible;
+        }
+        .mermaid-block svg { max-width: 100%; height: auto; }
+        .mermaid-block .foreignObject { overflow: visible; }
+
+        /* Keep SVG responsive */
+        .mermaid-block .flowchartTitleText { white-space: nowrap; }
+
+        /* Fallback: force readable label text if a theme hides it */
+        .mermaid-block .label text,
+        .mermaid-block .label span,
+        .mermaid-block .nodeLabel,
+        .mermaid-block .edgeLabel text {
+          fill: var(--theme-text) !important;
+          color: var(--theme-text) !important;
+        }
+        
+        /* Slightly compact default text to reduce overall width */
+        .mermaid-block svg text {
+          font-size: 12px;
+        }
+        
+        /* Reduce extra paddings often added around diagrams */
+        .mermaid-block svg { padding: 0; }
+        
+        .math-block {
+          margin: 1em 0;
+          text-align: center;
+        }
+        
+        .code-block {
+          margin: 1em 0;
+          border-radius: 6px;
+          overflow: hidden;
+          border: 1px solid var(--theme-border);
+        }
+        
+        /* KaTeX overflow fixes: prevent per-equation scrollbars */
+        .preview-wrapper .katex,
+        .preview-wrapper .katex-display,
+        .preview-wrapper .katex-display > .katex,
+        .preview-wrapper .katex-display .katex-html {
+          overflow: visible !important;
+          max-width: 100%;
+        }
+        .preview-wrapper .katex-display > .katex {
+          white-space: normal !important;
+        }
+        
+
+.preview-viewport { height: 100%; overflow: auto; background-color: var(--theme-bg); }
+.preview-wrapper { position: relative; isolation: isolate; box-sizing: border-box; height: auto; overflow: visible; }
+.preview-wrapper > .typeset-background { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.typeset-background > div { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; margin: 0; border-radius: 0; background-size: var(--typeset-background-fit); background-position: var(--typeset-background-position); background-repeat: no-repeat; opacity: var(--typeset-background-opacity); }
+.typeset-background > span { position: absolute; inset: 0; background-color: var(--theme-bg); opacity: var(--typeset-background-dimming); }
+.preview-wrapper[data-typeset="editorial"] { padding: clamp(24px, 5vw, 64px); font-family: var(--typeset-font); font-size: var(--typeset-size); line-height: var(--typeset-leading); overflow-wrap: anywhere; }
+.preview-wrapper[data-typeset="editorial"] > :not(style):not(.typeset-background) { max-width: var(--typeset-width); margin-left: auto; margin-right: auto; }
+.preview-wrapper[data-typeset="editorial"] h1 { font-size: 2.3em; letter-spacing: -.04em; line-height: 1.12; border: 0; margin-top: 0; margin-bottom: 1em; }
+.preview-wrapper[data-typeset="editorial"] h2 { font-size: 1.5em; letter-spacing: -.025em; line-height: 1.25; border: 0; padding: 0; margin-top: var(--typeset-section-gap); margin-bottom: 1em; break-after: avoid-page; }
+.preview-wrapper[data-typeset="editorial"] h2::before { content: ''; display: var(--typeset-denoter-display); width: 1.9em; height: 2px; margin-right: .65em; vertical-align: .3em; background-color: var(--theme-accent); }
+.preview-wrapper[data-typeset="editorial"] h3 { margin-top: 2em; font-size: 1.15em; }
+.preview-wrapper[data-typeset="editorial"] p { margin-top: var(--typeset-paragraph-gap); margin-bottom: var(--typeset-paragraph-gap); text-indent: 0; orphans: 3; widows: 3; }
+.preview-wrapper[data-typeset="editorial"] > p + p { text-indent: var(--typeset-indent); }
+.preview-wrapper[data-typeset="editorial"] > p:has(img), .preview-wrapper[data-typeset="editorial"] > p:has(img) + p { text-indent: 0; }
+.preview-wrapper[data-typeset="editorial"] a { color: var(--typeset-link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .18em; }
+.preview-wrapper[data-typeset="editorial"] li { margin-block: .4em; }
+.preview-wrapper[data-typeset="editorial"] li::marker { color: var(--theme-accent); }
+.preview-wrapper[data-typeset="editorial"] ul, .preview-wrapper[data-typeset="editorial"] ol { padding-left: 1.5em; margin-block: 1em; }
+.preview-wrapper[data-typeset="editorial"] > p:has(img), .preview-wrapper[data-typeset="editorial"] figure { margin-block: 1.75em; }
+.preview-wrapper[data-typeset="editorial"] :not(.typeset-background) > img { max-width: 100%; height: auto; margin: 0; border-radius: 0; vertical-align: middle; }
+.preview-wrapper[data-typeset="editorial"] figcaption { font-size: .85em; line-height: 1.5; margin-top: .7em; text-indent: 0; }
+@media print {
+  .preview-wrapper { height: auto; overflow: visible; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .preview-wrapper h1, .preview-wrapper h2, .preview-wrapper h3 { break-after: avoid-page; }
+  .preview-wrapper figure, .preview-wrapper pre, .preview-wrapper .mermaid-block { break-inside: avoid; }
+}
