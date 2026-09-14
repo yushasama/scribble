@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { copyHTML, exportPDF, exportToHTML, exportToMarkdown } from '../lib/export'
+import { exportPDF, exportToHTML, exportToMarkdown } from '../lib/export'
 import { codeThemes, themes } from '../lib/themes'
 
 interface ThemePickerProps {
@@ -11,13 +11,12 @@ interface ThemePickerProps {
   onReset: () => void
 }
 
-type ExportAction = 'markdown' | 'html' | 'copy-html' | 'pdf'
+type ExportAction = 'markdown' | 'html' | 'pdf'
 type ExportState = { message: string; tone: 'idle' | 'working' | 'success' | 'error' }
 
 const exportLabels: Record<ExportAction, string> = {
   markdown: 'Markdown downloaded',
   html: 'HTML downloaded',
-  'copy-html': 'HTML copied',
   pdf: 'PDF downloaded',
 }
 
@@ -72,11 +71,10 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ currentTheme, onThemeC
 
   const handleExport = async (action: ExportAction): Promise<void> => {
     setShowExportDropdown(false)
-    showStatus({ message: action === 'copy-html' ? 'Copying HTML…' : 'Preparing export…', tone: 'working' })
+    showStatus({ message: 'Preparing export…', tone: 'working' })
     try {
       if (action === 'markdown') exportToMarkdown(content)
       if (action === 'html') exportToHTML(getPreview())
-      if (action === 'copy-html') await copyHTML(getPreview())
       if (action === 'pdf') await exportPDF(getPreview())
       showStatus({ message: exportLabels[action], tone: 'success' })
     } catch (error) {
@@ -115,7 +113,6 @@ export const ThemePicker: React.FC<ThemePickerProps> = ({ currentTheme, onThemeC
               <div className="export-menu-heading">Take it with you</div>
               <ExportOption title="PDF" detail="Paginated document" icon="PDF" onClick={() => void handleExport('pdf')} />
               <ExportOption title="HTML" detail="Standalone webpage" icon="HTML" onClick={() => void handleExport('html')} />
-              <ExportOption title="Copy HTML" detail="Rich + source clipboard" icon="COPY" onClick={() => void handleExport('copy-html')} />
               <ExportOption title="Markdown" detail="Original source file" icon="MD" onClick={() => void handleExport('markdown')} />
             </div>
           )}

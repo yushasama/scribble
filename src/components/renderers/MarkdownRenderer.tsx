@@ -62,7 +62,7 @@ export const MarkdownRenderer = React.memo(({ content, theme, codeTheme }: Markd
     }
 
     if (language === 'mermaid') {
-      return <MermaidRenderer code={codeText} />
+      return <MermaidRenderer code={codeText} theme={theme} />
     }
 
     return <CodeRenderer code={codeText} language={language} theme={theme} codeTheme={codeTheme || 'github-dark'} />

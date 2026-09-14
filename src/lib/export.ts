@@ -60,20 +60,6 @@ export function exportToHTML(sourceElement: HTMLElement, fileName = 'scribble-ex
   triggerDownload(new Blob([createStandaloneHTML(sourceElement)], { type: 'text/html;charset=utf-8' }), fileName)
 }
 
-export async function copyHTML(sourceElement: HTMLElement): Promise<void> {
-  const html = createStandaloneHTML(sourceElement)
-  if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
-    const item = new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([html], { type: 'text/plain' }) })
-    await navigator.clipboard.write([item])
-    return
-  }
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(html)
-    return
-  }
-  copyTextFallback(html)
-}
-
 export async function exportPDF(sourceElement: HTMLElement, fileName = 'scribble-export.pdf'): Promise<void> {
   const { host, document: exportDocument, background } = createPDFDocument(sourceElement)
   document.body.appendChild(host)
@@ -210,16 +196,4 @@ function triggerDownload(blob: Blob, fileName: string): void {
   anchor.click()
   anchor.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-function copyTextFallback(value: string): void {
-  const textarea = document.createElement('textarea')
-  textarea.value = value
-  textarea.readOnly = true
-  textarea.style.cssText = 'position:fixed;left:-100000px;top:0;'
-  document.body.appendChild(textarea)
-  textarea.select()
-  const copied = document.execCommand('copy')
-  textarea.remove()
-  if (!copied) throw new Error('Clipboard access is unavailable in this browser.')
 }

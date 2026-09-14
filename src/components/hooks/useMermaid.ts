@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import { createMermaidTheme } from '../../lib/mermaidTheme'
+import { type Theme } from '../../lib/themes'
 
 export type MermaidInitializeConfig = {
   startOnLoad?: boolean
@@ -29,7 +31,7 @@ declare global {
   }
 }
 
-export function useMermaid(containerRef: React.RefObject<HTMLElement | null>, code: string) {
+export function useMermaid(containerRef: React.RefObject<HTMLElement | null>, code: string, theme: Theme): void {
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -52,11 +54,15 @@ export function useMermaid(containerRef: React.RefObject<HTMLElement | null>, co
         return
       }
 
+      const mermaidTheme = createMermaidTheme(theme)
+
       // Initialize defaults to prefer compact diagrams and wrapped labels.
       // Per-diagram %%{init: ... }%% can still override these values.
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: 'loose',
+        theme: 'base',
+        themeVariables: mermaidTheme.variables,
         flowchart: {
           htmlLabels: true,
           useMaxWidth: true,
@@ -69,11 +75,16 @@ export function useMermaid(containerRef: React.RefObject<HTMLElement | null>, co
           titleTopMargin: 24,
         },
         themeCSS: `
+          .node rect, .node circle, .node ellipse, .node polygon, .node path { stroke-width: 1.75px; }
+          .cluster rect { stroke-width: 1.5px; }
+          .edgePath path, .flowchart-link { stroke-width: 2px; }
+          marker path { fill: ${mermaidTheme.line}; stroke: ${mermaidTheme.line}; }
+
           /* Title stays on one line with space above graph */
           .flowchartTitleText { white-space: nowrap; }
 
-          /* Hide empty edge-label backgrounds that show up as black boxes */
-          .edgeLabel, .edgeLabel rect { fill: transparent !important; stroke: none !important; opacity: 0 !important; }
+          /* Keep edge labels legible without letting their boxes dominate the graph */
+          .edgeLabel rect, .labelBkg { fill: ${mermaidTheme.labelBackground} !important; stroke: ${mermaidTheme.border} !important; opacity: 1 !important; }
 
           /* Allow labels to wrap nicely when using htmlLabels */
           .label foreignObject, .edgeLabel foreignObject { width: auto; }
@@ -119,7 +130,7 @@ export function useMermaid(containerRef: React.RefObject<HTMLElement | null>, co
     run()
 
     return () => { cancelled = true }
-  }, [containerRef, code])
+  }, [containerRef, code, theme])
 }
 
 export default useMermaid

@@ -8,24 +8,6 @@ Built with care by [Leon](https://github.com/yushasama)
 # Scribble Architecture Diagram (Built with Mermaid)
 Here's how our magic is being done under the hood!
 ```mermaid
-%%{init:{
-  "theme":"base",
-  "securityLevel":"loose",
-  "layout":"elk",
-  "flowchart":{"htmlLabels":true,"curve":"basis","nodeSpacing":28,"rankSpacing":32,"padding":8,"diagramPadding":8,"titleTopMargin":24},
-  "themeVariables":{
-    "background":"transparent",
-      "primaryColor":"#0f172a",
-    "primaryTextColor":"#e5e7eb",
-    "primaryBorderColor":"#374151",
-    "lineColor":"#8ab4f8",
-    "clusterBkg":"#0b1220",
-    "clusterBorder":"#374151",
-    "edgeLabelBackground":"transparent"
-  },
-  "themeCSS": ".edgeLabel,.edgeLabel rect{fill:transparent!important;stroke:none!important;opacity:0!important}.flowchartTitleText{white-space:nowrap}.label foreignObject span{display:inline-block;white-space:normal;overflow-wrap:break-word;word-break:normal;hyphens:auto;line-height:1.25;min-width:12ch;max-width:34ch;text-align:center}"
-}}%%
-
 graph LR
   subgraph "Editor Layer"
     A[CodeMirror 6<br/>Editor]-->B[onChange Events<br/>Debounced]-->C[useSourceMapSync<br/>Bidirectional Sync]
@@ -61,18 +43,6 @@ graph LR
   O-->M
   P-->N
 
-  classDef editorLayer fill:#1f2937,stroke:#374151,stroke-width:2px,color:#e5e7eb
-  classDef processLayer fill:#111827,stroke:#374151,stroke-width:2px,color:#e5e7eb
-  classDef renderLayer fill:#0b1220,stroke:#374151,stroke-width:2px,color:#e5e7eb
-  classDef reactLayer fill:#1f2937,stroke:#374151,stroke-width:2px,color:#e5e7eb
-  classDef workerLayer fill:#111827,stroke:#374151,stroke-width:2px,color:#e5e7eb
-  classDef themeLayer fill:#0b1220,stroke:#374151,stroke-width:2px,color:#e5e7eb
-  class A,B,C editorLayer
-  class D,E,F,G processLayer
-  class H,I,J renderLayer
-  class K,L,M reactLayer
-  class N workerLayer
-  class O,P themeLayer
 ```
 
 ## 1. Text Formatting & Quotes
