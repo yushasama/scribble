@@ -1,641 +1,225 @@
-/**
- * Unified Export System
- * Markdown, HTML, and PDF export with multiple options
- */
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 
-import html2pdf from "html2pdf.js";
+const PDF_PAGE_WIDTH_PX = 794
+const PDF_PAGE_HEIGHT_PX = 1123
+const PDF_PAGE_PADDING_PX = 52
+const PDF_CONTENT_HEIGHT_PX = PDF_PAGE_HEIGHT_PX - PDF_PAGE_PADDING_PX * 2
+const PDF_ATOMIC_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, li, blockquote, table, figure, img, .code-container, .shiki-block, .katex-display, .mermaid-block'
 
-//
-// ─── MARKDOWN EXPORT ───────────────────────────────────────────────
-//
-export function exportToMarkdown(
-  markdown: string,
-  fileName = "scribble-export.md"
-): void {
-  const blob = new Blob([markdown], { type: "text/markdown" });
-  triggerDownload(blob, fileName);
+export function exportToMarkdown(markdown: string, fileName = 'scribble-export.md'): void {
+  triggerDownload(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }), fileName)
 }
 
-//
-// ─── HTML EXPORT ───────────────────────────────────────────────────
-//
-export function exportToHTML(
-  sourceElement: HTMLElement,
-  fileName = "scribble-export.html"
-): void {
-  // Clone content so we can strip interactive controls (copy buttons, etc.)
-  const clone = sourceElement.cloneNode(true) as HTMLElement;
+export function createStandaloneHTML(sourceElement: HTMLElement): string {
+  const clone = sourceElement.cloneNode(true) as HTMLElement
+  const computed = window.getComputedStyle(sourceElement)
+  const background = resolveColor(computed.backgroundColor, '#ffffff')
+  const foreground = resolveColor(computed.color, '#111827')
+  const styles = collectDocumentStyles()
 
-  // Collect all existing stylesheets and inline styles from the document
-  const styles = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
-    .map((el: Element) => (el as HTMLElement).outerHTML)
-    .join('\n');
-
-  // Ensure KaTeX CSS is available in the standalone export (production builds often use
-  // external CSS assets that won't be bundled alongside the exported HTML file). We include
-  // the CDN stylesheet unconditionally to guarantee fonts and layout render correctly.
-  const katexCdnCss = "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/katex@0.16.23/dist/katex.min.css\">";
-
-  const computedStyle = window.getComputedStyle(sourceElement);
-  const bgColor = computedStyle.backgroundColor || '#fff';
-  const textColor = computedStyle.color || '#000';
-
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <base href="${escapeAttribute(window.location.href)}">
   <title>Scribble Export</title>
   ${styles}
-  ${katexCdnCss}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.23/dist/katex.min.css">
   <style>
-    :root { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    body {
-      background: ${bgColor};
-      color: ${textColor};
-      font-family: system-ui, sans-serif;
-      margin: 0;
-    }
-    .preview-wrapper { padding: 20px; overflow-x: auto; }
-
-    /* Sleek horizontal scrollbar styling */
-    .preview-wrapper,
-    .preview-wrapper pre,
-    .preview-wrapper .shiki {
-      scrollbar-width: thin; /* Firefox */
-      scrollbar-color: var(--code-accent, var(--theme-accent, #7aa2f7)) transparent;
-    }
-    .preview-wrapper::-webkit-scrollbar { height: 10px; width: 10px; }
-    .preview-wrapper::-webkit-scrollbar-thumb {
-      background-color: var(--code-accent, var(--theme-accent, #7aa2f7));
-      border-radius: 8px;
-      border: 2px solid transparent;
-      background-clip: padding-box;
-    }
-    .preview-wrapper::-webkit-scrollbar-track { background: transparent; }
+    :root { color-scheme: ${isDarkColor(background) ? 'dark' : 'light'}; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body { min-height: 100%; margin: 0; background: ${background}; color: ${foreground}; }
+    body { font-family: system-ui, sans-serif; }
+    .preview-wrapper { box-sizing: border-box; min-height: 100vh; padding: clamp(24px, 5vw, 64px); overflow-x: auto; }
   </style>
 </head>
 <body>
 ${clone.outerHTML}
 <script>
-  (function(){
-    function getCodeFromButton(btn){
-      var container = btn.closest ? btn.closest('.code-container') : null;
-      if(!container) return '';
-      var pre = container.querySelector('pre');
-      if(pre && pre.textContent) return pre.textContent;
-      var code = container.querySelector('code');
-      return code && code.textContent ? code.textContent : '';
-    }
-    function fallbackCopy(text){
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.setAttribute('readonly','');
-      ta.style.position = 'fixed';
-      ta.style.left = '-9999px';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); } catch(e) {}
-      document.body.removeChild(ta);
-    }
-    function copyText(text){
-      if(!text) return;
-      if(navigator.clipboard && navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).catch(function(){ fallbackCopy(text); });
-      } else {
-        fallbackCopy(text);
-      }
-    }
-    document.addEventListener('click', function(e){
-      var target = e.target;
-      if(!(target instanceof Element)) return;
-      var btn = target.closest ? target.closest('.copy-btn') : null;
-      if(btn){
-        e.preventDefault();
-        var text = getCodeFromButton(btn);
-        copyText(text);
-      }
-    });
-
-    // Click-to-activate horizontal scroll lock inside code blocks; disabled on mobile
-    (function(){
-      var isMobile = (function(){ try { return window.innerWidth < 768; } catch(_) { return false; } })();
-      var scrollLock = new WeakMap();
-      document.addEventListener('click', function(e){
-        var el = e.target instanceof Element ? e.target.closest('.code-container') : null;
-        if(!el) return;
-        if(isMobile) return;
-        var pre = el.querySelector('pre.shiki');
-        if(!pre) return;
-        var hasOverflow = pre.scrollWidth > pre.clientWidth;
-        scrollLock.set(el, !!hasOverflow);
-      });
-      document.addEventListener('wheel', function(e){
-        var el = e.target instanceof Element ? e.target.closest('.code-container') : null;
-        if(!el) return;
-        if(isMobile) return;
-        if(!scrollLock.get(el)) return;
-        var pre = el.querySelector('pre.shiki');
-        if(!pre) return;
-        e.preventDefault();
-        var dx = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-        pre.scrollTo({ left: pre.scrollLeft + dx, behavior: 'smooth' });
-      }, { passive: false });
-    })();
-  })();
+  document.addEventListener('click', async function (event) {
+    var target = event.target instanceof Element ? event.target.closest('.copy-btn') : null;
+    if (!target) return;
+    event.preventDefault();
+    var container = target.closest('.code-container');
+    var code = container ? container.querySelector('pre, code') : null;
+    var text = code && code.textContent ? code.textContent : '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      var label = target.querySelector('span');
+      if (label) { var previous = label.textContent; label.textContent = 'Copied'; setTimeout(function () { label.textContent = previous; }, 1500); }
+    } catch (error) { console.error('Clipboard copy failed:', error); }
+  });
 </script>
 </body>
-</html>`;
-
-  const blob = new Blob([html], { type: 'text/html' });
-  triggerDownload(blob, fileName);
+</html>`
 }
 
-
-//
-// ─── PDF EXPORT (html2pdf.js, high fidelity) ───────────────────────────
-//
-/**
- * Exports the rendered preview to PDF with:
- * - exact theme colors
- * - no sliced equations or text
- * - high-DPI rendering
- */
-export async function exportPDF(node: HTMLElement): Promise<void> {
-  // 1. Wait for math + fonts to finish rendering
-  await new Promise((r) => setTimeout(r, 500));
-  if (document.fonts) await document.fonts.ready;
-
-  // 1b. Wrap long paragraphs and list items in export-safe containers to avoid mid-paragraph splits
-  document.querySelectorAll('p, li').forEach((el) => {
-    const parent = el.parentElement;
-    const parentHasWrapper = !!(parent && (parent.classList.contains('no-break-wrap') || parent.classList.contains('text-block')));
-    if (!parentHasWrapper) {
-      const wrapper = document.createElement('div');
-      wrapper.className = 'text-block no-break-wrap';
-      el.parentNode?.insertBefore(wrapper, el);
-      wrapper.appendChild(el);
-    }
-  });
-
-  // 2. Inject export-specific CSS to prevent mid-slices and preserve colors
-  const style = document.createElement("style");
-  style.textContent = `
-    /* Prevent math, code, or images from being sliced across pages */
-    .katex-display, .katex, pre, code, .shiki-block, .code-container, img, figure {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-      display: block;
-    }
-
-    /* Full background color on every page */
-    html, body, .preview-wrapper {
-      background: var(--theme-bg, #0d1117) !important;
-      color: var(--theme-text, #e6edf3) !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    /* Ensure body fills the page so the bottom isn't white */
-    body {
-      min-height: 100vh;
-    }
-
-    /* Prevent inline text cuts */
-    * { box-decoration-break: clone; }
-
-    /* Optional: give big images a bit of top/bottom margin */
-    img, figure { margin: 0.5em 0; }
-
-    /* 🧱 Fix phantom gaps between consecutive dark blocks */
-    .shiki-block,
-    .code-container,
-    .katex-display,
-    .katex,
-    pre,
-    code {
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-    }
-
-    /* Force consistent stacking, no margin collapse */
-    .shiki-block + *,
-    .katex-display + *,
-    pre + *,
-    code + * {
-      margin-top: 0.3rem !important;
-    }
-
-    /* Kill html2canvas phantom gaps from overflow or border rounding */
-    .preview-wrapper * {
-      transform: translateZ(0);
-      overflow-anchor: none;
-    }
-
-    /* Fix huge gaps before code or math blocks */
-    h1, h2, h3, h4, h5, h6, p, li {
-      margin-bottom: 0.4rem !important;
-    }
-
-    .shiki-block,
-    .code-container,
-    pre,
-    code,
-    .katex-display,
-    .katex {
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-      line-height: 1.45 !important;
-    }
-
-    /* Smooth spacing after text elements before dark blocks */
-    p + .shiki-block,
-    p + pre,
-    p + .katex-display,
-    li + .shiki-block,
-    li + pre,
-    li + .katex-display,
-    h1 + .shiki-block,
-    h2 + .shiki-block {
-      margin-top: 0.3rem !important;
-    }
-
-    /* Ensure html2canvas doesn’t mis-measure dark containers */
-    .preview-wrapper * {
-      backface-visibility: hidden;
-    }
-
-    /* 🧷 Keep full paragraphs and list items together */
-    .text-block,
-    .no-break-wrap,
-    p,
-    li {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-      display: block;
-    }
-
-    /* 📖 Ensure nice vertical rhythm */
-    p, li, .text-block { margin-bottom: 0.6rem !important; }
-
-    /* Default: avoid breaking inside blocks */
-    .katex-display, .katex, pre, code, .shiki-block, .code-container, img, figure {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-      display: block;
-    }
-
-    /* Allow soft breaks for very tall blocks */
-    @media print {
-      .tall-block {
-        page-break-inside: auto !important;
-        break-inside: auto !important;
-      }
-      /* Optional: heading page-start helpers */
-      h2, h3 { page-break-before: auto !important; }
-      h2.page-start, h3.page-start { page-break-before: always !important; }
-    }
-  `;
-  document.head.appendChild(style);
-
-  // 3. Ensure KaTeX blocks have real height before rendering
-  document.querySelectorAll(".katex-display").forEach((el) => {
-    (el as HTMLElement).style.minHeight = `${(el as HTMLElement).getBoundingClientRect().height}px`;
-  });
-
-  // 3b. Optional: allow emergency image splitting only if unavoidable (extremely tall images)
-  document.querySelectorAll("img").forEach((img) => {
-    const h = (img as HTMLElement).getBoundingClientRect().height;
-    if (h > 1100) (img as HTMLElement).style.pageBreakInside = "auto";
-  });
-
-  // 4. html2pdf configuration
-  const opt = {
-    margin: 0,
-    filename: "scribble-export.pdf",
-    image: { type: "jpeg", quality: 1 },
-    html2canvas: {
-      scale: 2.5,
-      useCORS: true,
-      backgroundColor: null,
-      logging: false,
-      windowWidth: node.scrollWidth,
-      dpi: 192,
-      letterRendering: true,
-    },
-    pagebreak: {
-      mode: ["css", "legacy"], // honor our "avoid" rules
-      avoid: [
-        ".text-block",
-        "p",
-        "li",
-        ".katex-display",
-        ".katex",
-        "pre",
-        "code",
-        ".code-container",
-        ".shiki-block",
-        "img",
-        "figure"
-      ]
-    },
-    jsPDF: { unit: "pt", format: "a4", orientation: "portrait" },
-  } as const;
-
-  // 5. Generate and save the PDF
-  // Normalize Shiki/code container spacing before capture
-  document.querySelectorAll('.shiki, .code-container').forEach(el => {
-    (el as HTMLElement).style.lineHeight = '1.4';
-    (el as HTMLElement).style.margin = '0';
-    (el as HTMLElement).style.paddingBottom = '0.5em';
-  });
-  // Normalize heading and paragraph margins to avoid compounded gaps
-  document.querySelectorAll('p, h1, h2, h3, h4, h5, h6').forEach(el => {
-    (el as HTMLElement).style.marginTop = '0';
-    (el as HTMLElement).style.marginBottom = '0.5rem';
-  });
-  // Tighten padding on dark blocks
-  document.querySelectorAll('.shiki, .code-container, .katex-display').forEach(el => {
-    (el as HTMLElement).style.paddingTop = '0.4em';
-    (el as HTMLElement).style.paddingBottom = '0.4em';
-  });
-  // Detect tall/does-not-fit blocks and allow soft page breaks for code/math only
-  const PAGE_HEIGHT_PX = Math.round((297 / 25.4) * 96);
-  const nodeTop = node.getBoundingClientRect().top + window.scrollY;
-  document.querySelectorAll('.shiki-block, .code-container, .katex-display').forEach((el) => {
-    const rect = (el as HTMLElement).getBoundingClientRect();
-    const h = rect.height;
-    const absTop = rect.top + window.scrollY - nodeTop;
-    const remainingOnPage = PAGE_HEIGHT_PX - (Math.round(absTop) % PAGE_HEIGHT_PX);
-    if (h > PAGE_HEIGHT_PX * 0.65 || h > remainingOnPage - 8) {
-      (el as HTMLElement).classList.add('tall-block');
-    }
-  });
-  // Anti-slice compositor stabilization (injected right before capture)
-  const antiSliceFix = document.createElement('style');
-  antiSliceFix.textContent = `
-    /* 🩹 Fix sliced text and faint horizontal seams */
-    * { transform: translateZ(0); backface-visibility: hidden; -webkit-font-smoothing: antialiased; }
-    body, .preview-wrapper { image-rendering: -webkit-optimize-contrast; text-rendering: geometricPrecision; }
-    /* Keep inline text unified within its block to avoid seam lines */
-    p, li, h1, h2, h3, h4, h5, h6, div { break-inside: avoid !important; page-break-inside: avoid !important; }
-    /* Force block formatting context to prevent margin-collapsing + reclaim empty space */
-    .text-block, .no-break-wrap, p, li { contain: layout paint; overflow: visible; }
-    html, body { background: var(--theme-bg, #0d1117) !important; }
-  `;
-  document.head.appendChild(antiSliceFix);
-  // Ensure full-height rendering and background coverage
-  node.style.minHeight = node.scrollHeight + "px";
-  await html2pdf().set(opt).from(node).save();
-
-  // 6. Clean up injected CSS
-  style.remove();
-  antiSliceFix.remove();
+export function exportToHTML(sourceElement: HTMLElement, fileName = 'scribble-export.html'): void {
+  triggerDownload(new Blob([createStandaloneHTML(sourceElement)], { type: 'text/html;charset=utf-8' }), fileName)
 }
 
-//
-// ─── PDF EXPORT (ENHANCED) ─────────────────────────────────────
-//
-export async function exportToPDF(targetElement?: HTMLElement) {
-  console.log("Starting Chrome-native PDF export (preview only)...");
-
-  // Find the preview container (the actual content we want to print)
-  const previewElement = (targetElement || document.querySelector(".preview-wrapper")) as HTMLElement;
-  if (!previewElement) {
-    console.error("No .preview-wrapper element found!");
-    return;
+export async function copyHTML(sourceElement: HTMLElement): Promise<void> {
+  const html = createStandaloneHTML(sourceElement)
+  if (navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+    const item = new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([html], { type: 'text/plain' }) })
+    await navigator.clipboard.write([item])
+    return
   }
-
-  // Wait for all async rendering to complete
-  await waitForMathAndMermaid(previewElement);
-  
-  // Wait for the render completion signal
-  console.log("⏳ Waiting for render completion signal...");
-  await new Promise<void>((resolve) => {
-    const check = (): void => {
-      const readyFlag = (window as unknown as { __scribbleRenderReady?: boolean }).__scribbleRenderReady
-      if (readyFlag) {
-        console.log("✅ Render completion signal received");
-        resolve();
-      } else {
-        setTimeout(check, 100);
-      }
-    };
-    check();
-  });
-
-  // Grab all stylesheets and styles from the current document
-  const styles = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
-    .map((el: Element) => el.outerHTML)
-    .join("\n");
-
-  // Get computed theme colors and CSS variables
-  const computed = getComputedStyle(previewElement);
-  const bg = computed.backgroundColor || "#fff";
-  const fg = computed.color || "#000";
-  
-  // Get CSS custom properties for proper theme integration
-  const rootStyles = getComputedStyle(document.documentElement);
-  const themeBg = rootStyles.getPropertyValue('--theme-bg').trim() || bg;
-  const themeText = rootStyles.getPropertyValue('--theme-text').trim() || fg;
-  const themeAccent = rootStyles.getPropertyValue('--theme-accent').trim() || '#7aa2f7';
-
-  // Create isolated print window with ONLY the preview content
-  const win = window.open("", "_blank", "width=1200,height=800");
-  if (!win) {
-    console.error("Popup blocked — cannot open print window");
-    return;
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(html)
+    return
   }
+  copyTextFallback(html)
+}
 
-  // Create HTML with all styles included
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Scribble Export</title>
-  ${styles}
-  <style>
-    :root {
-      --theme-bg: ${themeBg};
-      --theme-text: ${themeText};
-      --theme-accent: ${themeAccent};
-    }
-    html, body, .preview-wrapper {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: auto;
-      min-height: 100%;
-      background: var(--theme-bg, ${bg});
-      color: var(--theme-text, ${fg});
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-    @page { 
-      margin: 0; 
-      size: auto; 
-    }
-    .preview-wrapper {
-      background: var(--theme-bg, ${bg});
-      color: var(--theme-text, ${fg});
-      width: 100%;
-      height: auto;
-      min-height: 100%;
-      box-sizing: border-box;
-      padding: 20px;
-    }
-    @media print {
-      html, body, .preview-wrapper {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-        height: auto !important;
-        min-height: 100% !important;
-        background: var(--theme-bg, ${bg}) !important;
-        color: var(--theme-text, ${fg}) !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      mjx-container, mjx-math, .MathJax {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-        opacity: 1 !important;
-        color: var(--theme-text, ${fg}) !important;
-        display: block;
-      }
-      .mermaid, .mermaid svg {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-        vector-effect: non-scaling-stroke;
-      }
-      .mermaid * {
-        stroke-width: 1px !important;
-      }
-      pre, code, .shiki {
-        page-break-inside: avoid !important;
-        break-inside: avoid !important;
-        background: inherit !important;
-        color: inherit !important;
-      }
-    }
-  </style>
-</head>
-<body>${previewElement.outerHTML}</body>
-</html>`;
+export async function exportPDF(sourceElement: HTMLElement, fileName = 'scribble-export.pdf'): Promise<void> {
+  const { host, document: exportDocument, background } = createPDFDocument(sourceElement)
+  document.body.appendChild(host)
 
-  win.document.write(html);
-
-  win.document.close();
-
-  // Give MathJax and Mermaid time to load in the new window
-  await new Promise<void>((r: () => void) => setTimeout(r, 400));
-
-  // Re-run Mermaid in the print window to ensure diagrams render
   try {
-  const w = win as unknown as { mermaid?: { initialize: (cfg: { startOnLoad: boolean }) => void; run?: () => Promise<void> } };
-    if (w.mermaid?.initialize) {
-      console.log("🔄 Re-running Mermaid in print window...");
-      w.mermaid.initialize({ startOnLoad: true });
-      if (w.mermaid.run) await w.mermaid.run();
-      console.log("✅ Mermaid re-rendered in print window");
-    }
-  } catch (error) {
-    console.warn("Failed to re-run Mermaid in print window:", error);
-  }
+    await waitForExportAssets(exportDocument)
+    preparePDFPagination(exportDocument)
+    const pageCount = Math.max(1, Math.ceil(exportDocument.scrollHeight / PDF_CONTENT_HEIGHT_PX))
+    exportDocument.style.height = `${pageCount * PDF_CONTENT_HEIGHT_PX}px`
+    const scale = Math.max(1.25, Math.min(2, 28000 / exportDocument.scrollHeight))
+    const canvas = await html2canvas(exportDocument, { backgroundColor: background, scale, useCORS: true, logging: false, windowWidth: PDF_PAGE_WIDTH_PX })
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait', compress: true })
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = pdf.internal.pageSize.getHeight()
+    const canvasPageHeight = Math.round(PDF_PAGE_HEIGHT_PX * scale)
+    const canvasContentHeight = Math.round(PDF_CONTENT_HEIGHT_PX * scale)
+    const canvasPagePadding = Math.round(PDF_PAGE_PADDING_PX * scale)
 
-  win.focus();
-  win.print();
+    for (let pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+      if (pageIndex > 0) pdf.addPage()
+      const pageCanvas = document.createElement('canvas')
+      pageCanvas.width = canvas.width
+      pageCanvas.height = canvasPageHeight
+      const context = pageCanvas.getContext('2d')
+      if (!context) throw new Error('Could not create the PDF page canvas.')
+      context.fillStyle = background
+      context.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
+      const sourceY = pageIndex * canvasContentHeight
+      const sourceHeight = Math.min(canvasContentHeight, canvas.height - sourceY)
+      if (sourceHeight > 0) context.drawImage(canvas, 0, sourceY, canvas.width, sourceHeight, 0, canvasPagePadding, canvas.width, sourceHeight)
+      pdf.addImage(pageCanvas.toDataURL('image/png'), 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST')
+    }
+
+    pdf.save(fileName)
+  } finally {
+    host.remove()
+  }
 }
 
-//
-// ─── DEBUG PREVIEW PRINT ─────────────────────────────────────
-//
-export async function debugPreviewPrint(): Promise<void> {
-  console.log("🔍 Debug: Opening preview content in new window...");
-  
-  const previewElement = document.querySelector(".preview-wrapper") as HTMLElement;
-  if (!previewElement) {
-    console.error("No .preview-wrapper element found!");
-    return;
-  }
+function createPDFDocument(sourceElement: HTMLElement): { host: HTMLDivElement; document: HTMLDivElement; background: string } {
+  const computed = window.getComputedStyle(sourceElement)
+  const background = resolveColor(computed.backgroundColor, '#ffffff')
+  const foreground = resolveColor(computed.color, '#111827')
+  const host = document.createElement('div')
+  const exportDocument = sourceElement.cloneNode(true) as HTMLDivElement
+  host.className = 'scribble-export-host'
+  host.style.cssText = `position:fixed;left:-100000px;top:0;width:${PDF_PAGE_WIDTH_PX}px;pointer-events:none;z-index:-1;`
+  exportDocument.classList.add('scribble-pdf-document')
+  exportDocument.removeAttribute('id')
+  exportDocument.querySelectorAll('.copy-btn').forEach((button) => button.remove())
+  exportDocument.style.boxSizing = 'border-box'
+  exportDocument.style.width = `${PDF_PAGE_WIDTH_PX}px`
+  exportDocument.style.height = 'auto'
+  exportDocument.style.minHeight = `${PDF_PAGE_HEIGHT_PX}px`
+  exportDocument.style.overflow = 'visible'
+  exportDocument.style.padding = `0 ${PDF_PAGE_PADDING_PX}px`
+  exportDocument.style.background = background
+  exportDocument.style.color = foreground
 
-  // Wait for render completion signal
-  console.log("⏳ Waiting for render completion signal...");
+  const style = document.createElement('style')
+  style.textContent = `
+    .scribble-pdf-document, .scribble-pdf-document * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .scribble-pdf-document img { display: block; width: auto; max-width: 100% !important; max-height: ${PDF_CONTENT_HEIGHT_PX - 48}px; object-fit: contain; break-inside: avoid; }
+    .scribble-pdf-document figure, .scribble-pdf-document table, .scribble-pdf-document blockquote, .scribble-pdf-document .code-container, .scribble-pdf-document .shiki-block, .scribble-pdf-document .katex-display, .scribble-pdf-document .mermaid-block { break-inside: avoid; page-break-inside: avoid; }
+    .scribble-pdf-document .code-container { overflow: hidden; }
+    .scribble-pdf-document pre { overflow: hidden !important; white-space: pre-wrap !important; overflow-wrap: anywhere; }
+    .scribble-pdf-spacer { display: block; width: 100%; margin: 0; padding: 0; border: 0; }
+  `
+  host.append(style, exportDocument)
+  return { host, document: exportDocument, background }
+}
+
+function preparePDFPagination(exportDocument: HTMLElement): void {
+  const blocks = Array.from(exportDocument.querySelectorAll<HTMLElement>(PDF_ATOMIC_SELECTOR)).filter((element) => !element.parentElement?.closest(PDF_ATOMIC_SELECTOR))
+  for (const block of blocks) {
+    const documentTop = exportDocument.getBoundingClientRect().top
+    const rect = block.getBoundingClientRect()
+    const top = rect.top - documentTop
+    const pageOffset = ((top % PDF_CONTENT_HEIGHT_PX) + PDF_CONTENT_HEIGHT_PX) % PDF_CONTENT_HEIGHT_PX
+    if (rect.height > PDF_CONTENT_HEIGHT_PX || pageOffset + rect.height <= PDF_CONTENT_HEIGHT_PX) continue
+    const spacer = document.createElement('div')
+    spacer.className = 'scribble-pdf-spacer'
+    spacer.style.height = `${PDF_CONTENT_HEIGHT_PX - pageOffset}px`
+    block.before(spacer)
+  }
+}
+
+async function waitForExportAssets(exportDocument: HTMLElement): Promise<void> {
+  if (document.fonts) await document.fonts.ready
+  await Promise.all(Array.from(exportDocument.querySelectorAll('img')).map((image) => waitForImage(image)))
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+}
+
+async function waitForImage(image: HTMLImageElement): Promise<void> {
+  if (image.complete) return
   await new Promise<void>((resolve) => {
-    const check = (): void => {
-      if ((window as unknown as { __scribbleRenderReady?: boolean }).__scribbleRenderReady) {
-        console.log("✅ Render completion signal received");
-        resolve();
-      } else {
-        setTimeout(check, 100);
-      }
-    };
-    check();
-  });
-
-  const win = window.open("", "_blank", "width=1200,height=800");
-  if (!win) {
-    console.error("Popup blocked — cannot open debug window");
-    return;
-  }
-
-  win.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Debug Preview Content</title>
-  <style>
-    body {
-      margin: 20px;
-      font-family: system-ui, sans-serif;
-      background: #f5f5f5;
-    }
-    .debug-info {
-      background: #e3f2fd;
-      padding: 10px;
-      margin-bottom: 20px;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-  <div class="debug-info">
-    <strong>Debug Preview Content</strong><br>
-    This shows exactly what will be printed to PDF.
-  </div>
-  ${previewElement.outerHTML}
-</body>
-</html>`);
-
-  win.document.close();
-  console.log("✅ Debug window opened - check if content looks correct");
+    const finish = (): void => resolve()
+    image.addEventListener('load', finish, { once: true })
+    image.addEventListener('error', finish, { once: true })
+    window.setTimeout(finish, 8000)
+  })
 }
 
-//
-// ─── HELPERS ───────────────────────────────────────────────────────
-//
+function collectDocumentStyles(): string {
+  return Array.from(document.styleSheets).map((sheet) => {
+    try {
+      return `<style>${Array.from(sheet.cssRules).map((rule) => rule.cssText).join('\n')}</style>`
+    } catch {
+      return sheet.ownerNode instanceof HTMLElement ? sheet.ownerNode.outerHTML : ''
+    }
+  }).join('\n')
+}
+
+function resolveColor(value: string, fallback: string): string {
+  return !value || value === 'transparent' || value === 'rgba(0, 0, 0, 0)' ? fallback : value
+}
+
+function isDarkColor(value: string): boolean {
+  const match = value.match(/[\d.]+/g)?.map(Number)
+  if (!match || match.length < 3) return false
+  return match[0] * 0.299 + match[1] * 0.587 + match[2] * 0.114 < 128
+}
+
+function escapeAttribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 function triggerDownload(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-async function waitForMathAndMermaid(element: HTMLElement): Promise<void> {
-  const win = window as unknown as Record<string, unknown>;
-  if (win.MathJax && typeof (win.MathJax as Record<string, unknown>).typesetPromise === 'function') {
-    await (win.MathJax as Record<string, unknown>).typesetPromise as () => Promise<void>;
-  }
-  
-  // Wait for Mermaid to finish rendering
-  while (element.querySelector(".mermaid:not(.mermaid-rendered)")) {
-    await new Promise((r) => setTimeout(r, 100));
-  }
+function copyTextFallback(value: string): void {
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.readOnly = true
+  textarea.style.cssText = 'position:fixed;left:-100000px;top:0;'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const copied = document.execCommand('copy')
+  textarea.remove()
+  if (!copied) throw new Error('Clipboard access is unavailable in this browser.')
 }
-
-// (no other helpers required)

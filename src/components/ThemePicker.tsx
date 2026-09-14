@@ -1,188 +1,141 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { themes, codeThemes } from '../lib/themes';
-import { exportPDF, exportToHTML, exportToMarkdown, debugPreviewPrint } from '../lib/export';
+import React, { useEffect, useRef, useState } from 'react'
+import { copyHTML, exportPDF, exportToHTML, exportToMarkdown } from '../lib/export'
+import { codeThemes, themes } from '../lib/themes'
 
 interface ThemePickerProps {
-  currentTheme: string;
-  onThemeChange: (theme: string) => void;
-  currentCodeTheme: string;
-  onCodeThemeChange: (codeTheme: string) => void;
-  content: string;
-  onReset: () => void;
+  currentTheme: string
+  onThemeChange: (theme: string) => void
+  currentCodeTheme: string
+  onCodeThemeChange: (codeTheme: string) => void
+  content: string
+  onReset: () => void
 }
 
-export const ThemePicker: React.FC<ThemePickerProps> = ({ 
-  currentTheme, 
-  onThemeChange, 
-  currentCodeTheme, 
-  onCodeThemeChange,
-  content,
-  onReset
-}) => {
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const themeSelectRef = useRef<HTMLSelectElement>(null);
-  const codeThemeSelectRef = useRef<HTMLSelectElement>(null);
+type ExportAction = 'markdown' | 'html' | 'copy-html' | 'pdf'
+type ExportState = { message: string; tone: 'idle' | 'working' | 'success' | 'error' }
 
-  // Helper function to find NEXT theme by search term
-  const findNextThemeByLetter = (letter: string, themeList: string[], currentTheme: string) => {
-    const lowerLetter = letter.toLowerCase();
-    const currentIndex = themeList.findIndex(theme => theme === currentTheme);
-    
-    // Find themes starting with the letter
-    const matchingThemes = themeList
-      .map((theme, index) => ({ theme, index }))
-      .filter(({ theme }) => theme.toLowerCase().startsWith(lowerLetter));
-    
-    if (matchingThemes.length === 0) return currentTheme;
-    
-    // Find the next theme after current position
-    const nextMatch = matchingThemes.find(({ index }) => index > currentIndex);
-    
-    // If no next match, wrap around to first match
-    return nextMatch ? nextMatch.theme : matchingThemes[0].theme;
-  };
+const exportLabels: Record<ExportAction, string> = {
+  markdown: 'Markdown downloaded',
+  html: 'HTML downloaded',
+  'copy-html': 'HTML copied',
+  pdf: 'PDF downloaded',
+}
 
-  // Handle keyboard navigation for theme select
-  const handleThemeKeyDown = (e: React.KeyboardEvent<HTMLSelectElement>) => {
-    const char = e.key.toLowerCase();
-    if (char.length === 1 && char.match(/[a-z]/)) {
-      e.preventDefault();
-      const foundTheme = findNextThemeByLetter(char, themes.map(t => t.name), currentTheme);
-      if (foundTheme !== currentTheme) {
-        onThemeChange(foundTheme);
-      }
-    }
-  };
+export const ThemePicker: React.FC<ThemePickerProps> = ({ currentTheme, onThemeChange, currentCodeTheme, onCodeThemeChange, content, onReset }) => {
+  const [showExportDropdown, setShowExportDropdown] = useState(false)
+  const [exportState, setExportState] = useState<ExportState>({ message: '', tone: 'idle' })
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const statusTimerRef = useRef<number | null>(null)
 
-  // Handle keyboard navigation for code theme select
-  const handleCodeThemeKeyDown = (e: React.KeyboardEvent<HTMLSelectElement>) => {
-    const char = e.key.toLowerCase();
-    if (char.length === 1 && char.match(/[a-z]/)) {
-      e.preventDefault();
-      const foundTheme = findNextThemeByLetter(char, codeThemes, currentCodeTheme);
-      if (foundTheme !== currentCodeTheme) {
-        onCodeThemeChange(foundTheme);
-      }
-    }
-  };
-
-  // Close dropdown when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowExportDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-
-  const handleExport = async (type: 'markdown' | 'html' | 'pdf' | 'debug') => {
-    setShowExportDropdown(false);
-    
-    switch (type) {
-      case 'markdown':
-        exportToMarkdown(content);
-        break;
-      case 'html': {
-        const previewElement = document.querySelector('.preview-wrapper') as HTMLElement;
-        if (previewElement) {
-          exportToHTML(previewElement);
-        } else {
-          console.error('Preview element not found');
-        }
-        break;
-      }
-      case 'pdf': {
-        const previewElement = document.querySelector('.preview-wrapper') as HTMLElement;
-        if (previewElement) {
-          await exportPDF(previewElement);
-        } else {
-          console.error('Preview element not found');
-        }
-        break;
-      }
-      case 'debug':
-        await debugPreviewPrint();
-        break;
+    const handleClickOutside = (event: MouseEvent): void => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setShowExportDropdown(false)
     }
-  };
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current)
+    }
+  }, [])
+
+  const findNextThemeByLetter = (letter: string, themeList: string[], selectedTheme: string): string => {
+    const currentIndex = themeList.findIndex((theme) => theme === selectedTheme)
+    const matchingThemes = themeList.map((theme, index) => ({ theme, index })).filter(({ theme }) => theme.toLowerCase().startsWith(letter.toLowerCase()))
+    if (matchingThemes.length === 0) return selectedTheme
+    return matchingThemes.find(({ index }) => index > currentIndex)?.theme ?? matchingThemes[0].theme
+  }
+
+  const handleThemeKeyDown = (event: React.KeyboardEvent<HTMLSelectElement>): void => {
+    if (!/^[a-z]$/i.test(event.key)) return
+    event.preventDefault()
+    onThemeChange(findNextThemeByLetter(event.key, themes.map((theme) => theme.name), currentTheme))
+  }
+
+  const handleCodeThemeKeyDown = (event: React.KeyboardEvent<HTMLSelectElement>): void => {
+    if (!/^[a-z]$/i.test(event.key)) return
+    event.preventDefault()
+    onCodeThemeChange(findNextThemeByLetter(event.key, codeThemes, currentCodeTheme))
+  }
+
+  const showStatus = (state: ExportState): void => {
+    setExportState(state)
+    if (statusTimerRef.current !== null) window.clearTimeout(statusTimerRef.current)
+    if (state.tone === 'working') return
+    statusTimerRef.current = window.setTimeout(() => setExportState({ message: '', tone: 'idle' }), 2600)
+  }
+
+  const getPreview = (): HTMLElement => {
+    const preview = document.querySelector<HTMLElement>('.preview-wrapper')
+    if (!preview) throw new Error('The preview is not ready yet.')
+    return preview
+  }
+
+  const handleExport = async (action: ExportAction): Promise<void> => {
+    setShowExportDropdown(false)
+    showStatus({ message: action === 'copy-html' ? 'Copying HTML…' : 'Preparing export…', tone: 'working' })
+    try {
+      if (action === 'markdown') exportToMarkdown(content)
+      if (action === 'html') exportToHTML(getPreview())
+      if (action === 'copy-html') await copyHTML(getPreview())
+      if (action === 'pdf') await exportPDF(getPreview())
+      showStatus({ message: exportLabels[action], tone: 'success' })
+    } catch (error) {
+      console.error('Export failed:', error)
+      showStatus({ message: error instanceof Error ? error.message : 'Export failed', tone: 'error' })
+    }
+  }
 
   return (
     <div className="theme-picker">
       <div className="theme-section">
         <label htmlFor="theme-select">Preview Theme:</label>
-        <select
-          ref={themeSelectRef}
-          id="theme-select"
-          value={currentTheme}
-          onChange={(e) => onThemeChange(e.target.value)}
-          onKeyDown={handleThemeKeyDown}
-          className="theme-select"
-        >
-          {themes.map((theme) => (
-            <option key={theme.name} value={theme.name}>
-              {theme.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      
-      <div className="theme-section">
-        <label htmlFor="code-theme-select">Codeblock Theme:</label>
-        <select
-          ref={codeThemeSelectRef}
-          id="code-theme-select"
-          value={currentCodeTheme}
-          onChange={(e) => onCodeThemeChange(e.target.value)}
-          onKeyDown={handleCodeThemeKeyDown}
-          className="theme-select"
-        >
-          {codeThemes.map((codeTheme) => (
-            <option key={codeTheme} value={codeTheme}>
-              {codeTheme.replace('prism-', '').split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-            </option>
-          ))}
+        <select id="theme-select" value={currentTheme} onChange={(event) => onThemeChange(event.target.value)} onKeyDown={handleThemeKeyDown} className="theme-select">
+          {themes.map((theme) => <option key={theme.name} value={theme.name}>{theme.name}</option>)}
         </select>
       </div>
 
       <div className="theme-section">
-        <button onClick={onReset} className="theme-btn">
-          Reset
-        </button>
+        <label htmlFor="code-theme-select">Codeblock Theme:</label>
+        <select id="code-theme-select" value={currentCodeTheme} onChange={(event) => onCodeThemeChange(event.target.value)} onKeyDown={handleCodeThemeKeyDown} className="theme-select">
+          {codeThemes.map((codeTheme) => <option key={codeTheme} value={codeTheme}>{codeTheme.replace('prism-', '').split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</option>)}
+        </select>
       </div>
-      
-      <div className="theme-section">
-        <div className="export-dropdown" ref={dropdownRef}>
-          <button 
-            onClick={() => setShowExportDropdown(!showExportDropdown)}
-            className="theme-btn export-btn"
-          >
-            Export ▼
+
+      <div className="theme-section"><button onClick={onReset} className="theme-btn">Reset</button></div>
+
+      <div className="theme-section export-section">
+        <div className="export-dropdown" ref={dropdownRef} onKeyDown={(event) => { if (event.key === 'Escape') setShowExportDropdown(false) }}>
+          <button type="button" onClick={() => setShowExportDropdown((visible) => !visible)} className="theme-btn export-btn" aria-haspopup="menu" aria-expanded={showExportDropdown}>
+            <ExportIcon />
+            Export
+            <span className="export-chevron" aria-hidden>⌄</span>
           </button>
           {showExportDropdown && (
-            <div className="export-menu">
-              <button onClick={() => handleExport('markdown')} className="export-option">
-                Markdown
-              </button>
-              <button onClick={() => handleExport('html')} className="export-option">
-                HTML
-              </button>
-              <button onClick={() => handleExport('pdf')} className="export-option">
-                PDF
-              </button>
-              <button onClick={() => handleExport('debug')} className="export-option">
-                Debug Preview
-              </button>
+            <div className="export-menu" role="menu" aria-label="Export document">
+              <div className="export-menu-heading">Take it with you</div>
+              <ExportOption title="PDF" detail="Paginated document" icon="PDF" onClick={() => void handleExport('pdf')} />
+              <ExportOption title="HTML" detail="Standalone webpage" icon="HTML" onClick={() => void handleExport('html')} />
+              <ExportOption title="Copy HTML" detail="Rich + source clipboard" icon="COPY" onClick={() => void handleExport('copy-html')} />
+              <ExportOption title="Markdown" detail="Original source file" icon="MD" onClick={() => void handleExport('markdown')} />
             </div>
           )}
         </div>
+        <span className={`export-status export-status-${exportState.tone}`} role="status" aria-live="polite">{exportState.message}</span>
       </div>
     </div>
-  );
-};
+  )
+}
+
+function ExportOption({ title, detail, icon, onClick }: { title: string; detail: string; icon: string; onClick: () => void }): React.ReactElement {
+  return (
+    <button type="button" className="export-option" role="menuitem" onClick={onClick}>
+      <span className="export-option-icon" aria-hidden>{icon}</span>
+      <span className="export-option-copy"><strong>{title}</strong><small>{detail}</small></span>
+      <span className="export-option-arrow" aria-hidden>↗</span>
+    </button>
+  )
+}
+
+function ExportIcon(): React.ReactElement {
+  return <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M5 16v3h14v-3"/></svg>
+}

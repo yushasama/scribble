@@ -12,8 +12,6 @@ interface NodeWithPosition extends Node {
 
 export function remarkSourceMap() {
   return (tree: Node) => {
-    let processedCount = 0;
-    
     visit(tree, (node: NodeWithPosition) => {
       // Only process nodes with position data
       if (!node.position?.start?.line) return;
@@ -26,8 +24,6 @@ export function remarkSourceMap() {
         'data-pos-start': node.position.start.line,
         'data-pos-end': node.position.end.line,
       };
-      
-      processedCount++;
     });
   };
 }

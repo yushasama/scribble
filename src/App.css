@@ -113,44 +113,54 @@
 }
 
 .export-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 7px;
 }
 
-.export-menu {
+.export-chevron {
+  margin-left: 2px;
+  font-size: 16px;
+  line-height: 0;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.export-btn[aria-expanded='true'] .export-chevron {
+  transform: rotate(180deg);
+}
+
+.export-section {
+  position: relative;
+}
+
+.export-status {
   position: absolute;
-  top: 100%;
-  left: 0;
-  background: #3b4252;
-  border: none;
-  border-radius: 6px;
-  z-index: 1000;
-  min-width: 120px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 999;
+  width: max-content;
+  max-width: 260px;
+  padding: 6px 9px;
+  border: 1px solid #d0d7de;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #57606a;
+  box-shadow: 0 8px 24px rgba(31, 35, 40, 0.12);
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 
-.export-option {
-  display: block;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  color: #d8dee9;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.2s ease;
+.export-status:not(:empty) {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-.export-option:hover {
-  background: #434c5e;
-  color: #88c0d0;
-}
-
-.export-option:active {
-  background: #4c566a;
-}
+.export-status-working { color: #0969da; }
+.export-status-success { color: #1a7f37; }
+.export-status-error { border-color: #ff8182; color: #cf222e; }
 
 /* Theme Picker Styles */
 .theme-picker {
@@ -226,39 +236,105 @@
 
 .theme-picker .export-menu {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 8px);
   right: 0;
-  background: #ffffff;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+  width: 292px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(31, 35, 40, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(31, 35, 40, 0.18), 0 2px 8px rgba(31, 35, 40, 0.08);
+  backdrop-filter: blur(16px);
   z-index: 1000;
-  min-width: 140px;
-  overflow: hidden;
 }
 
+.export-menu-heading {
+  padding: 7px 9px 9px;
+  color: #6e7781;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 
 .theme-picker .export-option {
-  display: block;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 18px;
+  gap: 10px;
+  align-items: center;
   width: 100%;
-  padding: 10px 16px;
+  min-height: 56px;
+  padding: 8px;
   background: transparent;
   color: #24292e;
   border: none;
+  border-radius: 8px;
   text-align: left;
   cursor: pointer;
-  transition: all 0.15s ease;
-  font-size: 14px;
-  font-weight: 500;
+  transition: background 160ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.theme-picker .export-option:hover {
-  background: #f6f8fa;
-  color: #0366d6;
+.export-option-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid #d8dee4;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #ffffff, #f3f5f7);
+  color: #0969da;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.export-option-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-option-copy strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.export-option-copy small {
+  overflow: hidden;
+  color: #6e7781;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.export-option-arrow {
+  color: #8c959f;
+  opacity: 0;
+  transform: translate(-3px, 3px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.theme-picker .export-option:focus-visible {
+  outline: 2px solid #0969da;
+  outline-offset: -2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .theme-picker .export-option:hover {
+    background: #f3f5f7;
+    transform: translateX(2px);
+  }
+
+  .theme-picker .export-option:hover .export-option-arrow {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
 }
 
 .theme-picker .export-option:active {
-  background: #e1e4e8;
+  background: #eaeef2;
 }
 
 

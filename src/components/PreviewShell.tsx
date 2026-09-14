@@ -301,8 +301,6 @@ export const PreviewShell: React.FC<PreviewShellProps> = ({
         /* Reduce extra paddings often added around diagrams */
         .mermaid-block svg { padding: 0; }
         
-        }
-        
         .math-block {
           margin: 1em 0;
           text-align: center;
