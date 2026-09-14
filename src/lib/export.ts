@@ -6,6 +6,7 @@ const PDF_PAGE_HEIGHT_PX = 1123
 const PDF_PAGE_PADDING_PX = 52
 const PDF_CONTENT_HEIGHT_PX = PDF_PAGE_HEIGHT_PX - PDF_PAGE_PADDING_PX * 2
 const PDF_ATOMIC_SELECTOR = 'h1, h2, h3, h4, h5, h6, p, li, blockquote, table, figure, img, .code-container, .shiki-block, .katex-display, .mermaid-block'
+const PDF_HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6'
 
 export function exportToMarkdown(markdown: string, fileName = 'scribble-export.md'): void {
   triggerDownload(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }), fileName)
@@ -124,6 +125,7 @@ function createPDFDocument(sourceElement: HTMLElement): { host: HTMLDivElement; 
     .scribble-pdf-document, .scribble-pdf-document * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .scribble-pdf-document img { display: block; width: auto; max-width: 100% !important; max-height: ${PDF_CONTENT_HEIGHT_PX - 48}px; object-fit: contain; break-inside: avoid; }
     .scribble-pdf-document figure, .scribble-pdf-document table, .scribble-pdf-document blockquote, .scribble-pdf-document .code-container, .scribble-pdf-document .shiki-block, .scribble-pdf-document .katex-display, .scribble-pdf-document .mermaid-block { break-inside: avoid; page-break-inside: avoid; }
+    .scribble-pdf-document h1, .scribble-pdf-document h2, .scribble-pdf-document h3, .scribble-pdf-document h4, .scribble-pdf-document h5, .scribble-pdf-document h6 { break-after: avoid-page; page-break-after: avoid; }
     .scribble-pdf-document .code-container { overflow: hidden; }
     .scribble-pdf-document pre { overflow: hidden !important; white-space: pre-wrap !important; overflow-wrap: anywhere; }
     .scribble-pdf-spacer { display: block; width: 100%; margin: 0; padding: 0; border: 0; }
@@ -133,18 +135,45 @@ function createPDFDocument(sourceElement: HTMLElement): { host: HTMLDivElement; 
 }
 
 function preparePDFPagination(exportDocument: HTMLElement): void {
+  preparePDFSections(exportDocument)
   const blocks = Array.from(exportDocument.querySelectorAll<HTMLElement>(PDF_ATOMIC_SELECTOR)).filter((element) => !element.parentElement?.closest(PDF_ATOMIC_SELECTOR))
   for (const block of blocks) {
-    const documentTop = exportDocument.getBoundingClientRect().top
-    const rect = block.getBoundingClientRect()
-    const top = rect.top - documentTop
-    const pageOffset = ((top % PDF_CONTENT_HEIGHT_PX) + PDF_CONTENT_HEIGHT_PX) % PDF_CONTENT_HEIGHT_PX
-    if (rect.height > PDF_CONTENT_HEIGHT_PX || pageOffset + rect.height <= PDF_CONTENT_HEIGHT_PX) continue
-    const spacer = document.createElement('div')
-    spacer.className = 'scribble-pdf-spacer'
-    spacer.style.height = `${PDF_CONTENT_HEIGHT_PX - pageOffset}px`
-    block.before(spacer)
+    insertPDFPageSpacer(exportDocument, block, block.getBoundingClientRect().height)
   }
+}
+
+function preparePDFSections(exportDocument: HTMLElement): void {
+  const blocks = Array.from(exportDocument.children).filter((element): element is HTMLElement => element instanceof HTMLElement)
+  const headingIndexes = blocks.flatMap((block, index) => block.matches(PDF_HEADING_SELECTOR) ? [index] : [])
+
+  for (let sectionIndex = 0; sectionIndex < headingIndexes.length; sectionIndex += 1) {
+    const startIndex = headingIndexes[sectionIndex]
+    const endIndex = headingIndexes[sectionIndex + 1] ?? blocks.length
+    const heading = blocks[startIndex]
+    const sectionEnd = blocks[endIndex - 1]
+    const sectionHeight = sectionEnd.getBoundingClientRect().bottom - heading.getBoundingClientRect().top
+    if (sectionHeight <= PDF_CONTENT_HEIGHT_PX) {
+      insertPDFPageSpacer(exportDocument, heading, sectionHeight)
+      continue
+    }
+
+    const openingBlock = blocks[startIndex + 1]
+    if (!openingBlock || openingBlock.matches(PDF_HEADING_SELECTOR)) continue
+    const openingHeight = openingBlock.getBoundingClientRect().bottom - heading.getBoundingClientRect().top
+    insertPDFPageSpacer(exportDocument, heading, openingHeight)
+  }
+}
+
+function insertPDFPageSpacer(exportDocument: HTMLElement, block: HTMLElement, blockHeight: number): void {
+  if (blockHeight > PDF_CONTENT_HEIGHT_PX) return
+  const top = block.getBoundingClientRect().top - exportDocument.getBoundingClientRect().top
+  const pageOffset = ((top % PDF_CONTENT_HEIGHT_PX) + PDF_CONTENT_HEIGHT_PX) % PDF_CONTENT_HEIGHT_PX
+  const remainingHeight = PDF_CONTENT_HEIGHT_PX - pageOffset
+  if (pageOffset < 1 || blockHeight <= remainingHeight + 1) return
+  const spacer = document.createElement('div')
+  spacer.className = 'scribble-pdf-spacer'
+  spacer.style.height = `${remainingHeight}px`
+  block.before(spacer)
 }
 
 async function waitForExportAssets(exportDocument: HTMLElement): Promise<void> {
