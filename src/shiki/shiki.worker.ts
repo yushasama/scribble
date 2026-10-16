@@ -65,6 +65,7 @@ async function initializeShiki() {
       'sql',
       'verilog',
       'vhdl',
+      'asm',
     ],
   });
 
@@ -80,6 +81,7 @@ async function warmup() {
     ['python', 'def hello(): pass'],
     ['rust', 'fn main() {}'],
     ['cpp', '#include <iostream>'],
+    ['asm', 'section .text\n_start:\n    mov rax, 25\n    xor rdx, rdx'],
     // HDL warmups
     ['verilog', 'module m; initial begin $display("hi"); end endmodule'],
     ['vhdl', 'entity m is end; architecture a of m is begin null; end;'],
