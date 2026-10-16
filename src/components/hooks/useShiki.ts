@@ -3,6 +3,7 @@ import { useShiki as useWorkerShiki } from '../../shiki/useShiki'
 function normalizeLanguage(language: string): string {
   const lower = (language || '').toLowerCase()
   if (lower === 'vhd') return 'vhdl'
+  if (lower === 'nasm' || lower === 'assembly' || lower === 'x86') return 'asm'
   return lower
 }
 
